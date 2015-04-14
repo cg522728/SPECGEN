@@ -798,8 +798,16 @@ CONTAINS
         DATA    OMEGA2/0/
 
         IF (SHELLIN.EQ. K_SHELL) GO TO 101
-        IF (SHELLIN.EQ. L3_SHELL .OR. SHELLIN.EQ. L2_SHELL) GO TO 102
+        IF (SHELLIN.EQ. L3_SHELL) GO TO 102
+        IF (SHELLIN.EQ. L2_SHELL) GO TO 102
+        IF (SHELLIN.EQ. L1_SHELL) GO TO 102
         IF (SHELLIN.EQ. M5_SHELL) GO TO 103
+        IF (SHELLIN.EQ. M4_SHELL) GO TO 103
+        IF (SHELLIN.EQ. M3_SHELL) GO TO 103
+        IF (SHELLIN.EQ. M2_SHELL) GO TO 103
+        IF (SHELLIN.EQ. M1_SHELL) GO TO 103
+        FLUORYIELD_CHG = 0
+        RETURN
 
 101     N = 0
         DO N=0,3
@@ -836,7 +844,7 @@ CONTAINS
         REAL(16), PARAMETER :: U = 1.6605402E-24
         REAL(16) :: MAC
 
-        MAC = (CSb_Total(Z, DBLE(E))*1E-24)/(AtomicWeight(Z)*u)
+        MAC = (CS_Total(Z, DBLE(E)))!/(AtomicWeight(Z)*u)
     END FUNCTION
     FUNCTION MAC_COMP(CP, E)
         !#################################################################################
@@ -859,7 +867,7 @@ CONTAINS
 
         DO CNT=1,CP%NELEMENTS
             Z = CP%ELEMENTS(CNT)
-            MAC_TMP = (CSb_Total(Z, DBLE(E))*1E-24)/(AtomicWeight(Z)*u)
+            MAC_TMP = (CS_Photo(Z, DBLE(E)))!/(AtomicWeight(Z)*u)
             MAC_COMP = (MAC_TMP*CP%MASSFRACTIONS(CNT)) + MAC_COMP
         END DO
         MAC_COMP = MAC_COMP

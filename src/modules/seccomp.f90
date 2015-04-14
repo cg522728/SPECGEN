@@ -10,49 +10,79 @@ MODULE SECCOMP
         USE :: XRLDATA
         IMPLICIT NONE
         REAL(16) :: ITMP, ITMP2, ITMP3
-        REAL(16) :: EI, EST, EA
+        REAL(16) :: EI, EST, E1, E2
         INTEGER :: CNT, ECNT, CMIN, N
         INTEGER :: ZELEMENT
-        REAL(16) :: SECCOMPCHAR
+        REAL(16) :: SECCOMPCHAR, CONST
         REAL(16) :: PI, KAPPA, TAU, MAC1, MAC2, FLUOR, RADR
+        REAL(16), DIMENSION(:), ALLOCATABLE :: TMP1, TMP2, IA, IA2, EA
         PI = 2.D0*DASIN(1.D0)
         DATA ITMP/0/
         DATA ITMP2/0/
         DATA ITMP3/0/
 
+        ALLOCATE(TMP1(SIZE(LINE)))
+        ALLOCATE(TMP2(NSTEP))
+        ALLOCATE(IA(SIZE(LINE)))
+        ALLOCATE(EA(SIZE(LINE)))
+        ALLOCATE(IA2(NSTEP))
+        TMP1 = 0._16
+        TMP2 = 0._16
+        IA = 0._16
+        EA = 0._16
+        IA2 = 0._16
+
         EST = LineEnergy(ZELEMENT, LINE(N))
         IF (EST.EQ.0) THEN
-            SECCOMPCHAR = 0.
+            SECCOMPCHAR = SECTCONT(EST)
             RETURN
         ENDIF
         DO  CNT=1,SIZE(LINE)
-            EA = LineEnergy(Z_ANODE, LINE(CNT))
-            IF (EA.EQ.0) CYCLE
-            IF (EA.LT. EST) CYCLE
-            ITMP = ANODECHAR(CNT, KAPPA)&
-                *CS_Photo_CP(STR_SECTARGET, DBLE(EST))&
-                *FluorYield(ZELEMENT, SHELL(N))&
-                *RadRate(ZELEMENT, LINE(N))&
-                /((MAC_COMP(CP_ST, EA)&
-                /SIN(A_ST_AZIM_IN))&
-                +(MAC_COMP(CP_ST, EST)&
-                /SIN(A_ST_AZIM_OUT))) + ITMP
+            EA(CNT) = LineEnergy(Z_ANODE, LINE(CNT))
+            IA(CNT) = ANODECHAR(CNT, KAPPA)
         END DO
-        ITMP = ITMP*(SA_ST_IN/(4*PI*SIN(A_ST_AZIM_IN)))
+        CONST = CS_Photo_CP(STR_SECTARGET, DBLE(EST))&
+                    *FluorYield(ZELEMENT, SHELL(N))&
+                    *RadRate(ZELEMENT, LINE(N))
+        MAC1 = MAC_COMP(CP_ST, EST)/SIN(A_ST_AZIM_OUT)
+        !$OMP PARALLEL SHARED(EA, IA, TMP1, TMP2)
+        !$OMP DO
+        DO  CNT=1,SIZE(LINE)
+            IF (EA(CNT).EQ.0) CYCLE
+            IF (EA(CNT).LT. EST) CYCLE
+            IF (ISNAN(IA(CNT))) CYCLE
+            TMP1(CNT) = IA(CNT)&
+                /((MAC_COMP(CP_ST, EA(CNT))&
+                /SIN(A_ST_AZIM_IN))&
+                +(MAC1))
+        END DO
+        !$OMP END DO
+        CONST = FLUORYIELD_CHG(ZELEMENT, SHELL(N))&
+                   *RadRate(Z_ANODE, LINE(N))
+        !$OMP DO
         DO ECNT= 1,NSTEP
             EI = EMIN+ESTEP*DBLE(ECNT)
-            ITMP2 = ANODECONT(EI)&
-                *CS_Photo_CP(STR_SECTARGET, DBLE(EI))&
-                *FluorYield(ZELEMENT, SHELL(N))&
-                *RadRate(Z_ANODE, LINE(N))&
-                /((MAC_COMP(CP_ST, EI)&
+            E1 = EI - (ESTEP/2)
+            E2 = EI + (ESTEP/2)
+            IF (ISNAN(ANODECONT(E1))) CYCLE
+            IF (ISNAN(ANODECONT(E2))) CYCLE
+            TMP2(ECNT) = ((ANODECONT(E1)&
+                *CS_Photo_CP(STR_SECTARGET, DBLE(E1))&
+                *CONST&
+                /((MAC_COMP(CP_ST, E1)&
                 /SIN(A_ST_AZIM_IN))&
-                +(MAC_COMP(CP_ST, EST)&
-                /SIN(A_ST_AZIM_OUT)))
-            ITMP2 = ITMP2 + ITMP3
-            ITMP3 = ITMP2
-2       END DO
-        ITMP3 = ITMP3*ESTEP*(SA_ST_IN/(4*PI*SIN(A_ST_AZIM_IN)))
+                +MAC1))&
+                +(ANODECONT(E2)&
+                *CS_Photo_CP(STR_SECTARGET, DBLE(E2))&
+                *CONST&
+                /((MAC_COMP(CP_ST, E2)&
+                /SIN(A_ST_AZIM_IN))&
+                +MAC1)))*ESTEP
+        END DO
+        !$OMP END DO
+        !$OMP END PARALLEL
+        ITMP = SUM(TMP1)*(SA_ST_IN/(4*PI*SIN(A_ST_AZIM_IN)))
+        ITMP3 = SUM(TMP2)*ESTEP*(SA_ST_IN/(4*PI*SIN(A_ST_AZIM_IN)))
         SECCOMPCHAR = (ITMP + ITMP3)
         RETURN
     END FUNCTION

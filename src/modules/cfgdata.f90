@@ -12,6 +12,7 @@ MODULE CFGDATA
     INTEGER                     :: Z_FILTER
     REAL(16)                     :: D_WINDOW
     REAL(16)                     :: D_FILTER
+    REAL(16)                     :: A_INCID
     REAL(16)                     :: A_TAKE_OFF
     REAL(16)                     :: A_ST_POL
     REAL(16)                     :: A_ST_AZIM_IN
@@ -21,6 +22,14 @@ MODULE CFGDATA
     REAL(16)                     :: SA_ANODE_OUT
     REAL(16)                     :: SA_ST_IN
     REAL(16)                     :: SA_ST_OUT
+    REAL(16)                    :: D_DET_WINDOW
+    INTEGER                    :: Z_DET_WINDOW
+    REAL(16)                    :: D_DET_GAP
+    INTEGER                    :: Z_DET_GAP
+    INTEGER                    :: Z_DET_DL
+    REAL(16)                    :: D_DET_DL
+    REAL(16)                    :: D_DET_BODY
+    INTEGER                    :: Z_DET_BODY
     CHARACTER(LEN=16)           :: STR_SECTARGET
     CHARACTER(LEN=16)           :: STR_SAMPLE
     CHARACTER(LEN=16)           :: STR_FILTER
@@ -50,6 +59,12 @@ CONTAINS
             WRITE (1, 200) 'PAN-Gd', 64, 26., 1., 4, 300.
             CLOSE(1)
         ENDIF
+        INQUIRE(FILE='det.dat', EXIST=DIR_E)
+        IF (.NOT.DIR_E) THEN
+            OPEN(UNIT=1,FILE='det.dat')
+            WRITE (1, 204) 'PAN-32', 4, 8., 4, 0., 32, 50.E-3, 32, 5.E3
+            CLOSE(1)
+        ENDIF
         INQUIRE(FILE='sect.dat', EXIST=DIR_E)
         IF (.NOT.DIR_E) THEN
             OPEN(UNIT=1,FILE='sect.dat')
@@ -76,9 +91,10 @@ CONTAINS
             WRITE (1, 203) 'Al', 250.
             CLOSE(1)
         ENDIF
-200     FORMAT(A16, I3, 2F6.2, I3, F6.2)
-202     FORMAT(A16, 2X, A3, 5F6.2)
-203     FORMAT(A16, F6.2)
+200     FORMAT(A16, I3, 2ES32.20E3, I3, ES32.20E3)
+202     FORMAT(A16, 2X, A3, 5ES32.20E3)
+203     FORMAT(A16, ES32.20E3)
+204     FORMAT(A16, 4(I3, ES32.20E3))
     END SUBROUTINE INITCFG
     !======================================================================================================
     SUBROUTINE READCFG()
@@ -101,6 +117,7 @@ CONTAINS
         IMPLICIT NONE
         CHARACTER(LEN=16)   :: ARG1, ARG2, ARG3, ARG4, ARG5, ARG6, ARG7
         CHARACTER(LEN=16)   :: ARG8, ARG9
+        INTEGER     :: Z_SAMPLE
         REAL(16) :: PI
         PI = 2.D0*DASIN(1.D0)
 
@@ -136,11 +153,13 @@ CONTAINS
         READ(ARG8,'(F6.2)') ESTEP
         READ(ARG9,'(F6.2)') EMIN
         STR_SECTARGET = ARG3
-        STR_SAMPLE = ARG6
+        STR_FILTER = AtomicNumberToSymbol(Z_FILTER)
+!        STR_SAMPLE = ARG6
 
         !SETTING DEFAULT VALUES FOR PANALYTICAL EPSILON 5
         !TUBE AND GEOMETRY
         Z_ANODE = 64
+        A_INCID = 90
         A_TAKE_OFF = 26
         SA_ANODE_OUT = 1
         Z_WINDOW = 4
@@ -151,6 +170,15 @@ CONTAINS
         SA_ST_IN = 1
         SA_ST_OUT = 1
 
+        D_DET_WINDOW = 8.
+        Z_DET_WINDOW = 4
+        D_DET_GAP = 0.
+        Z_DET_GAP = 4
+        Z_DET_DL = 32
+        D_DET_DL = 50.E-3
+        D_DET_BODY = 5.E3
+        Z_DET_BODY = 32
+
         !CONVERTING ANGLES IN DEGREES TO ANGLES IN RADIAN
         A_TAKE_OFF = DEG2RAD(A_TAKE_OFF)
         A_ST_POL = DEG2RAD(A_ST_POL)
@@ -160,7 +188,13 @@ CONTAINS
         NSTEP = INT((VTUBE-EMIN)*ESTEP**(-1))
         !PARSING COMPOUND STRINGS WITH COMPOUNDPARSER FROM XRAYLIB
         CP_ST => COMPOUNDPARSER(ADJUSTL(STR_SECTARGET))
+        READ (ARG6, '(I3)', ERR=10) Z_SAMPLE
+        STR_SAMPLE = AtomicNumberToSymbol(Z_SAMPLE)
         CP_SAM => COMPOUNDPARSER(ADJUSTL(STR_SAMPLE))
+        RETURN
+10      READ (ARG6, '(A16)') STR_SAMPLE
+        CP_SAM => COMPOUNDPARSER(ADJUSTL(STR_SAMPLE))
+        RETURN
     END SUBROUTINE READCFG
     !======================================================================================================
     SUBROUTINE LOADCFG()
@@ -226,27 +260,87 @@ CONTAINS
                 Z_WINDOW, D_WINDOW
         END DO
         CLOSE(1)
+
         !CHECKING THE NUMBER OF CONFIGURATIONS STORED IN
-        !'sect.dat'
-4       OPEN(UNIT=2, FILE='sect.dat',ACCESS='SEQUENTIAL')
+        !'det.dat'
+        OPEN(UNIT=1, FILE='det.dat',ACCESS='SEQUENTIAL')
         NUM = 0
         DO
-            READ (2,*,END=5) STRING
+            READ (1,*,END=4) STRING
             NUM = NUM + 1
         END DO
 
-5       WRITE (*,*) "SECONDARY TARGET CONFIG IN FILE"
+        !DISPLAY MENU OF DETECTOR-CONFIGURATIONS AND ASKING FOR CHOICE
+4       WRITE (*,*) "DETECTOR CONFIG IN FILE"
+        REWIND(1)
+        DO CNT = 1, NUM
+            READ (1,204,END=5) STRING, Z_DET_WINDOW, D_DET_WINDOW, Z_DET_GAP, D_DET_GAP,&
+ Z_DET_DL, D_DET_DL, Z_DET_BODY, D_DET_BODY
+            WRITE (*,201) CNT, STRING
+        END DO
+5       WRITE (*,201) 0, 'NEW CONFIG'
+        WRITE (*,'(A,$)') 'CHOICE='
+        READ (*,*) CHOICE
+        IF (CHOICE.NE. 0) GO TO 6
+        CLOSE(1)
+        !DESIGN AND WRITE NEW CONFIGURATION TO FILE
+        !OPENING CONFIG FILE 'tube.dat' FOR APPEND
+        OPEN(UNIT=1, FILE='det.dat', ACCESS='APPEND')
+
+        WRITE (*,'(A,$)') "NAME = "
+        READ (*,*) NAME
+        WRITE (*,'(A,$)') "Z_DET_WINDOW = "
+        READ (*,*) Z_DET_WINDOW
+        WRITE (*,'(A,$)') "D_DET_WINDOW = "
+        READ (*,*) D_DET_WINDOW
+        WRITE (*,'(A,$)') "Z_DET_GAP = "
+        READ (*,*) Z_DET_GAP
+        WRITE (*,'(A,$)') "D_DET_GAP = "
+        READ (*,*) D_DET_GAP
+        WRITE (*,'(A,$)') "Z_DET_DL = "
+        READ (*,*) Z_DET_DL
+        WRITE (*,'(A,$)') "D_DET_DL = "
+        READ (*,*) D_DET_DL
+        WRITE (*,'(A,$)') "Z_DET_BODY = "
+        READ (*,*) Z_DET_BODY
+        WRITE (*,'(A,$)') "D_DET_BODY = "
+        READ (*,*) D_DET_BODY
+
+        !WRITE CONFIGURATION TO FILE 'tube.dat'
+        WRITE (1,204) NAME, Z_DET_WINDOW, D_DET_WINDOW, Z_DET_GAP, D_DET_GAP,&
+ Z_DET_DL, D_DET_DL, Z_DET_BODY, D_DET_BODY
+        GO TO 7
+        !IF CHOICE IS NOT 0, THEN REWIND FILE AND READ UNTIL CORRECT
+        !CONFIGURATION HAS BEEN READ
+6       REWIND(1)
+        DO CNT = 1, CHOICE
+            READ (1,204,END=6) NAME, Z_DET_WINDOW, D_DET_WINDOW, Z_DET_GAP, D_DET_GAP,&
+ Z_DET_DL, D_DET_DL, Z_DET_BODY, D_DET_BODY
+        END DO
+        CLOSE(1)
+
+
+        !CHECKING THE NUMBER OF CONFIGURATIONS STORED IN
+        !'sect.dat'
+7       OPEN(UNIT=2, FILE='sect.dat',ACCESS='SEQUENTIAL')
+        NUM = 0
+        DO
+            READ (2,*,END=8) STRING
+            NUM = NUM + 1
+        END DO
+
+8       WRITE (*,*) "SECONDARY TARGET CONFIG IN FILE"
         REWIND(2)
         !DISPLAY MENU OF ST-CONFIGURATIONS AND ASKING FOR CHOICE
         DO CNT = 1, NUM
-            READ (2,202,END=6) STR_SECTARGET, STR_TYPE, A_ST_POL, A_ST_AZIM_IN, A_ST_AZIM_OUT,&
+            READ (2,202,END=9) STR_SECTARGET, STR_TYPE, A_ST_POL, A_ST_AZIM_IN, A_ST_AZIM_OUT,&
             SA_ST_IN, SA_ST_OUT
             WRITE (*,201) CNT, STR_SECTARGET
         END DO
-6       WRITE (*,201) 0, 'NEW CONFIG'
+9       WRITE (*,201) 0, 'NEW CONFIG'
         WRITE (*,'(A,$)') 'CHOICE='
         READ (*,*) CHOICE
-        IF (CHOICE.NE. 0) GO TO 7
+        IF (CHOICE.NE. 0) GO TO 10
         CLOSE(2)
         !DESIGN AND WRITE NEW CONFIGURATION TO FILE
         !OPENING CONFIG FILE 'sect.dat' FOR APPEND
@@ -269,31 +363,31 @@ CONTAINS
         WRITE (2,202) STR_SECTARGET, STR_TYPE, A_ST_POL, A_ST_AZIM_IN, A_ST_AZIM_OUT,&
             SA_ST_IN, SA_ST_OUT
         GO TO 8
-7       REWIND(2)
+10       REWIND(2)
         !IF CHOICE IS NOT 0, THEN REWIND FILE AND READ UNTIL CORRECT
         !CONFIGURATION HAS BEEN READ
         DO CNT = 1, CHOICE
-            READ (2,202,END=7) STR_SECTARGET, STR_TYPE, A_ST_POL, A_ST_AZIM_IN, A_ST_AZIM_OUT, SA_ST_IN,&
+            READ (2,202,END=10) STR_SECTARGET, STR_TYPE, A_ST_POL, A_ST_AZIM_IN, A_ST_AZIM_OUT, SA_ST_IN,&
                 SA_ST_OUT
         END DO
-8       CLOSE(2)
+11       CLOSE(2)
         !CHECKING THE NUMBER OF CONFIGURATIONS STORED IN
         !'filt.dat'
         OPEN(UNIT=3, FILE='filt.dat',ACCESS='SEQUENTIAL')
         NUM = 0
         DO
-            READ (3,*,END=10) STRING
+            READ (3,*,END=13) STRING
             NUM = NUM + 1
         END DO
 
-10      WRITE (*,*) "FILTER CONFIG IN FILE"
+13      WRITE (*,*) "FILTER CONFIG IN FILE"
         REWIND(3)
         !DISPLAY MENU OF ST-CONFIGURATIONS AND ASKING FOR CHOICE
-        DO CNT = 1, NUM
-            READ (3,203,END=11) STR_FILTER, D_FILTER
+        DO CNT = 2, NUM
+            READ (3,203,END=14) STR_FILTER, D_FILTER
             WRITE (*,201) CNT, STR_FILTER
         END DO
-11      WRITE (*,201) 0, 'NEW CONFIG'
+14      WRITE (*,201) 0, 'NEW CONFIG'
         WRITE (*,201) 1, 'NO FILTER'
         WRITE (*,'(A,$)') 'CHOICE='
         READ (*,*) CHOICE
@@ -306,9 +400,9 @@ CONTAINS
         IF (CHOICE.EQ. 1) THEN
             Z_FILTER = 4
             D_FILTER = 0
-            GO TO 13
+            GO TO 16
         ENDIF
-        IF (CHOICE.NE. 0) GO TO 12
+        IF (CHOICE.NE. 0) GO TO 15
         CLOSE(3)
         !DESIGN AND WRITE NEW CONFIGURATION TO FILE
         !OPENING CONFIG FILE 'filt.dat' FOR APPEND
@@ -321,13 +415,13 @@ CONTAINS
         !WRITE CONFIGURATION TO FILE 'sect.dat'
         WRITE (3,203) STR_FILTER, D_FILTER
         GO TO 8
-12      REWIND(2)
+15      REWIND(2)
         !IF CHOICE IS NOT 0, THEN REWIND FILE AND READ UNTIL CORRECT
         !CONFIGURATION HAS BEEN READ
-        DO CNT = 1, CHOICE
-            READ (3,203,END=12) STR_FILTER, D_FILTER
+        DO CNT = 2, CHOICE
+            READ (3,203,END=15) STR_FILTER, D_FILTER
         END DO
-13      CLOSE(3)
+16      CLOSE(3)
         WRITE (*,'(A,$)') "SAMPLE (SYMB) = "
         READ (*,*) STR_SAMPLE
         WRITE (*,'(A,$)') "CONC (IN ug/mm^2) = "
@@ -341,12 +435,15 @@ CONTAINS
         WRITE (*,'(A,$)') "E_MIN (IN keV) = "
         READ (*,*) EMIN
         CLOSE(1)
-200     FORMAT(A16, I3, 2F6.2, I3, F6.2)
+200     FORMAT(A16, I3, 2ES32.20E3, I3, ES32.20E3)
 201     FORMAT(T10, 1H[, I2, 1H], 2X, A16)
-202     FORMAT(A16, 2X, A3, 5F6.2)
-203     FORMAT(A16, F6.2)
+202     FORMAT(A16, 2X, A3, 5ES32.20E3)
+203     FORMAT(A16, ES32.20E3)
+204     FORMAT(A16, 4(I3, ES32.20E3))
 
         !CONVERTING ANGLES IN DEGREES TO ANGLES IN RADIAN
+        A_INCID = 90.
+        A_INCID = DEG2RAD(A_INCID)
         A_TAKE_OFF = DEG2RAD(A_TAKE_OFF)
         A_ST_POL = DEG2RAD(A_ST_POL)
         A_ST_AZIM_IN = DEG2RAD(A_ST_AZIM_IN)
@@ -356,6 +453,8 @@ CONTAINS
         NSTEP = INT((VTUBE-EMIN)*ESTEP**(-1))
 
         !PARSING COMPOUND STRINGS WITH COMPOUNDPARSER FROM XRAYLIB
+        STR_SAMPLE = ADJUSTL(STR_SAMPLE)
+        CP_SAM => CompoundParser(STR_SAMPLE)
         STR_SECTARGET = ADJUSTL(STR_SECTARGET)
         CP_ST => CompoundParser(STR_SECTARGET)
         RETURN
@@ -380,6 +479,7 @@ CONTAINS
         !#################################################################################
         WRITE (999,*) Z_ANODE
         WRITE (999,*) A_TAKE_OFF
+        WRITE (999,*) A_INCID
         WRITE (999,*)  SA_ANODE_OUT
         WRITE (999,*) Z_WINDOW
         WRITE (999,*)  D_WINDOW
@@ -391,10 +491,40 @@ CONTAINS
         WRITE (999,*) SA_ST_OUT
         WRITE (999,*) STR_FILTER
         WRITE (999,*) D_FILTER
+        WRITE (999,*) STR_SAMPLE
+        WRITE (999,*) CONC
         WRITE (999,*) VTUBE
         WRITE (999,*) ITUBE
         WRITE (999,*) ESTEP
         WRITE (999,*) NSTEP
         WRITE (999,*) EMIN
     END SUBROUTINE DEBUGCFG
+    SUBROUTINE DISPCFG()
+        !#################################################################################
+        !#DISPLAY ALL POSSIBLE PARAMETERS                                                #
+        !#################################################################################
+        WRITE (6,'(53("#"))')
+        WRITE (6,'(1H#,A16,3H = , I32,1H#)') 'Z_ANODE', Z_ANODE
+        WRITE (6,'(1H#,A16,3H = , F32.4,1H#)') 'A_INCID', A_INCID
+        WRITE (6,'(1H#,A16,3H = , F32.4,1H#)') 'A_TAKE_OFF', A_TAKE_OFF
+        WRITE (6,'(1H#,A16,3H = , F32.4,1H#)')  'SA_ANODE_OUT', SA_ANODE_OUT
+        WRITE (6,'(1H#,A16,3H = , I32,1H#)') 'Z_WINDOW', Z_WINDOW
+        WRITE (6,'(1H#,A16,3H = , F32.4,1H#)')  'D_WINDOW', D_WINDOW
+        WRITE (6,'(1H#,A16,3H = , A32,1H#)') 'STR_SECTARGET', TRIM(STR_SECTARGET)
+        WRITE (6,'(1H#,A16,3H = , F32.4,1H#)') 'A_ST_POL', A_ST_POL
+        WRITE (6,'(1H#,A16,3H = , F32.4,1H#)') 'A_ST_AZIM_IN', A_ST_AZIM_IN
+        WRITE (6,'(1H#,A16,3H = , F32.4,1H#)') 'A_ST_AZIM_OUT', A_ST_AZIM_OUT
+        WRITE (6,'(1H#,A16,3H = , F32.4,1H#)') 'SA_ST_IN', SA_ST_IN
+        WRITE (6,'(1H#,A16,3H = , F32.4,1H#)') 'SA_ST_OUT', SA_ST_OUT
+        WRITE (6,'(1H#,A16,3H = , A32,1H#)') 'STR_FILTER', TRIM(STR_FILTER)
+        WRITE (6,'(1H#,A16,3H = , F32.4,1H#)') 'D_FILTER', D_FILTER
+        WRITE (6,'(1H#,A16,3H = , A32,1H#)') 'STR_SAMPLE', TRIM(STR_SAMPLE)
+        WRITE (6,'(1H#,A16,3H = , F32.4,1H#)') 'CONC', CONC
+        WRITE (6,'(1H#,A16,3H = , F32.4,1H#)') 'VTUBE', VTUBE
+        WRITE (6,'(1H#,A16,3H = , F32.4,1H#)') 'ITUBE', ITUBE
+        WRITE (6,'(1H#,A16,3H = , F32.4,1H#)') 'ESTEP', ESTEP
+        WRITE (6,'(1H#,A16,3H = , I32,1H#)') 'NSTEP', NSTEP
+        WRITE (6,'(1H#,A16,3H = , F32.4,1H#)') 'EMIN', EMIN
+        WRITE (6,'(53("#"))')
+    END SUBROUTINE DISPCFG
 END MODULE CFGDATA

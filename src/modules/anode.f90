@@ -2,6 +2,7 @@ MODULE ANODE
     USE :: xraylib
     USE :: CFGDATA
     USE :: XRLDATA
+    USE :: CONSTANTS
     IMPLICIT NONE
 
 CONTAINS
@@ -19,36 +20,28 @@ CONTAINS
         IMPLICIT NONE
 
         REAL(16) :: ANODECONT
-        REAL(16) :: CONST
-        REAL(16) :: EI
+        REAL(16) :: CONST, EBEL
+        REAL(16) :: EI, E1, E2
         REAL(16) :: X
         REAL(16) :: F
-        REAL(16) :: I
+        REAL(16) :: I, TMP1, TMP2
         REAL(16) :: ETA, ETACONST
         REAL(16) :: C, C1, C2, C3
 
-        DATA    CONST/1.35E9/
+        DATA    EBEL/1.37E9/
 
+        E1 = EI - (ESTEP/2)
+        E2 = EI + (ESTEP/2)
+        CONST = SA_ANODE_OUT*ITUBE*EBEL*Z_ANODE
         X = 1.109-0.00435*Z_ANODE+0.00175*VTUBE
-        ETA = VTUBE**(1.65)-EI**(1.65)
-        ETACONST = MAC(Z_ANODE, EI)/(SIN(A_TAKE_OFF)*63.67)
-        ETA = ETA*ETACONST
-        C1 = 1+2.56E-3*Z_ANODE**2
-        C2 = 1+3.17E4*VTUBE**(-1)*Z_ANODE**(-2)
-        C3 = 0.25*ETA+1E4
-        C = (1+C1**(-1))*C2**(-1)*C3**(-1)
-        F = (1+C*ETA)**(-2)
-        I = SA_ANODE_OUT&
-                *ITUBE&
-                *CONST&
-                *Z_ANODE&
-                *(((VTUBE/EI)-1)**X)&
-                *F
-        I = I*EXP(-MAC(Z_WINDOW, EI)*D_WINDOW*1E-4)   !Be-venster
-        IF (D_WINDOW.GT. 0) THEN
-            I = I*EXP(-MAC(Z_FILTER, EI)*D_FILTER*1E-4)
+        TMP1 = CONST*(((VTUBE/E1)-1)**X)*CALC_F(E1)
+        TMP2 = CONST*(((VTUBE/(E2))-1)**X)*CALC_F(E2)
+        I = ESTEP*(TMP1+TMP2)/2
+        I = I*EXP(-MAC(Z_WINDOW, EI)*D_WINDOW*ElementDensity(Z_WINDOW)*1E-4)   !Be-venster
+        IF (D_FILTER.GT. 0) THEN
+            I = I*EXP(-MAC(Z_FILTER, EI)*D_FILTER*ElementDensity(Z_FILTER)*1E-4)
         ENDIF
-        ANODECONT = I*ESTEP
+        ANODECONT = I
         RETURN
     END FUNCTION ANODECONT
     FUNCTION ANODECHAR(N, KAPPA)
@@ -76,56 +69,57 @@ CONTAINS
         REAL(16) :: TAU
         REAL(16) :: R
         REAL(16) :: KAPPA
-        REAL(16) :: PI, K
+        REAL(16) :: PI, K, CONST, UZ, EBEL
+        REAL(16), DIMENSION(5)   :: RCON
+
+        DATA EBEL/6E13/
+        DATA RCON/1, 0.008157, 3.613E-5, 0.009583, 0.001141/
 
         PI = 2.D0*DASIN(1.D0)
         EC = LineEnergy(Z_ANODE, LINE(N))
-        IF (EC.EQ.0) THEN
+        UZ = VTUBE/EC
+        R = RCON(1) - RCON(2)*Z_ANODE + RCON(3)*(Z_ANODE**2)+RCON(4)*Z_ANODE*EXP(-UZ)+RCON(5)*VTUBE
+        IF (EC.EQ.0 .OR. EC.LT.EMIN) THEN
             ANODECHAR = 0._16
             RETURN
         ENDIF
-        TAU = (((VTUBE/EC)*LOG((VTUBE/EC)/((VTUBE/EC)-1)))-1)
-        R = CALC_KR(Z_ANODE, EC, N, KAPPA)*TAU
-        IF (R.EQ. 0) THEN
-            ANODECHAR = ANODECONT(EC)
-            RETURN
-        ENDIF
-        ANODECHAR = R*ANODECONT(EC)*((EC**2)/KEV2ANGST)/(4*PI)
+        ANODECHAR = SA_ANODE_OUT&
+                    *ITUBE&
+                    *EBEL&
+                    *R&
+                    *STOPPINGFACTOR(EC, N)&
+                    *CALC_F(EC)&
+                    *RadRate(Z_ANODE, LINE(N))&
+                    *FLUORYIELD_CHG(Z_ANODE, SHELL(N))
+        IF (ISNAN(ANODECHAR)) ANODECHAR = ANODECONT(EC)
         RETURN
     END FUNCTION ANODECHAR
-    FUNCTION CALC_KR(Z, EI, SHELLS, KAPPA)
-    !#################################################################################
-    !#THIS FUNCTION CALCULATES THE K_r FACTOR IN THE PELLA ALGORITHM, WHICH WAS      #
-    !#SIMPLIFIED IN THE ORIGINAL ALGORITHM BY A POLYNOME-FIT OF THE ACTUAL VALUES    #
-    !#INPUTS ARE:                                                                    #
-    !#      -Z      (INT)       ATOMIC NUMBER                                        #
-    !#      -EI     (REAL16)    ENERGY IN keV                                        #
-    !#      -SHELLS (INT)       INDEX OF SHELL-ARRAY IN MODULE XRLDATA               #
-    !#      -KAPPA  (REAL16)    PROPORTIONAL CONSTANT CALCULATED WITH CHECKKAPPA()   #
-    !#################################################################################
+    FUNCTION CALC_F(EI)
         USE :: xraylib
-        USE :: XRLDATA
-        USE :: CFGDATA
-        IMPLICIT NONE
-        REAL(16) :: CALC_KR
-        INTEGER :: Z, SHELLS
-        REAL(16) :: EI, UZ
-        REAL(16) :: K, PI, P, OMEGAQ, R, A, C, LAMBDAL
-        REAL(16)    :: KAPPA
-        REAL(16), DIMENSION(5)   :: RCON
-
-        DATA K/2.72E-6/
-        DATA C/4.4E5/
-        DATA RCON/1, 0.008157, 3.613E-5, 0.009583, 0.001141/
-
-        UZ = VTUBE/EI
-        LAMBDAL = KEV2ANGST/LineEnergy(Z, LINE(SHELLS))
-        A = AtomicWeight(Z)
-        R = RCON(1) - RCON(2)*Z + RCON(3)*(Z**2)+RCON(4)*Z*EXP(-UZ)+RCON(5)*VTUBE
-        P = 1.62E-13*(Z-2)**2*Z*A*C*R**(-1)
-        OMEGAQ = FluorYield(Z, SHELL(SHELLS))
-        PI = RadRate(Z, LINE(SHELLS))
-        CALC_KR = (KAPPA/K)*PI*(1+P)*OMEGAQ*R*(LAMBDAL**2)*((A*C*Z)**(-1))
+        REAL(16)    :: CALC_F
+        REAL(16)    :: EI
+        REAL(16)    :: TMP, TMP1
+        TMP = CS_Photo(Z_ANODE, DBLE(EI))*2*DDF(EI)*(SIN(A_INCID)/SIN(A_TAKE_OFF))
+        TMP1 = 1-EXP(-TMP)
+        CALC_F = TMP1/TMP
         RETURN
-    END FUNCTION
+    END FUNCTION CALC_F
+        FUNCTION DDF(EI)
+        USE :: xraylib
+        REAL(16)    ::DDF
+        REAL(16)    :: EI
+        REAL(16)    :: ETA
+        REAL(16)    :: TMP, M, UZ, J, TMP2, TMP3
+        UZ = VTUBE/EI
+        M = 0.1382-(0.9211/SQRT(DBLE(Z_ANODE)))
+        J = 0.0135*Z_ANODE
+        ETA = (VTUBE**M)*(0.1904-0.2236*LOG(DBLE(Z_ANODE))+0.1292*(LOG(DBLE(Z_ANODE))**2)&
+                -0.0149*(LOG(DBLE(Z_ANODE))**3))
+        TMP = (AtomicWeight(Z_ANODE)/DBLE(Z_ANODE))&
+            *(0.787E-5*SQRT(J*VTUBE**3)+0.735E-6*VTUBE**2)
+        TMP2 = 0.49269-1.0987*ETA+0.78557*ETA**2
+        TMP3 = 0.70256-1.09865*ETA+1.0046*ETA**2+LOG(UZ)
+        DDF = TMP*(TMP2/TMP3)*LOG(UZ)
+        RETURN
+    END FUNCTION DDF
 END MODULE ANODE
