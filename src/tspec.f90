@@ -1,5 +1,11 @@
 PROGRAM TSPEC
-    USE :: xraylib
+    !#################################################################################
+    !#TSPEC CALCULATES THE SPECTRUM AS EMITTED BY A USER-DEFINED X-RAY TUBE          #
+    !#                                                                               #
+    !#CHRISTOPHER GEERLINGS 15/04/2015                                               #
+    !#################################################################################
+    USE     :: xraylib
+    USE     :: TYPES
     USE     :: ISO_FORTRAN_ENV
     USE     :: xraylib
     USE     :: XRLDATA
@@ -8,25 +14,25 @@ PROGRAM TSPEC
     USE     :: CONSTANTS
 
     IMPLICIT NONE
-    INTEGER :: CNT, N, CNT2, NELEMENT
+    INTEGER             :: CNT
+    INTEGER             :: N
     CHARACTER(LEN=16)   :: ARG0
-    REAL(16) :: EI, I, K, EC, EA
-    REAL(16)    :: KAPPA, PI
-    REAL(16)    :: ISAM1, ISAM2
-    REAL        :: START, FINISH
+    REAL(DP)            :: EI = 0_DP
+    REAL(QP)            :: ITMP = 0_QP
+    REAL(DP)            :: EA = 0_DP
+    REAL(QP)            :: PI = 0_QP
+
 
     PI = 2.D0*DASIN(1.D0)
 
     OPEN(UNIT=999, FILE='DEBUG.LOG', ACCESS='APPEND', STATUS='REPLACE')
     OPEN(UNIT=100, STATUS='SCRATCH')    !BUFFER
-
     OPEN(UNIT=101, STATUS='SCRATCH')    !ANODE CONTINUUM
     OPEN(UNIT=102, STATUS='SCRATCH')    !ANODE CHARACTERISTIC LINES
     OPEN(UNIT=103, STATUS='SCRATCH')    !TUBE SPECTRUM
+    OPEN(UNIT=121,FILE='OUTPUT_T.DAT', ACCESS='APPEND', STATUS='REPLACE')
 
-    OPEN(UNIT=121,FILE='OUTPUT.DAT', ACCESS='APPEND', STATUS='REPLACE')
-
-        !SET UP CONFIG-FILES
+    !SET UP CONFIG-FILES
     CALL INITCFG()
     !READ SELECTOR FROM COMMAND LINE
     !   = 0 THEN LOAD CONFIG FROM FILES AND DISPLAY MENU
@@ -40,7 +46,7 @@ PROGRAM TSPEC
         CALL READCFG()
     ENDIF
 
-    CALL DEBUGCFG()
+!    CALL DEBUGCFG()
     CALL DISPCFG()
 
     !WRITING LIST OF ENERGY VALUES IN CONTINUUM
@@ -57,7 +63,7 @@ PROGRAM TSPEC
     DO CNT = 1, NSTEP
         WRITE (6,'(I4,1H/,I4,A1,$)',ADVANCE='NO') CNT, NSTEP, CHAR(13)
         READ (100,200) EI
-        WRITE (101,201) EI, ANODECONT(EI)
+        WRITE (101,201) EI, ANODE_CONT(EI)
     END DO
     REWIND(100)
 
@@ -66,7 +72,7 @@ PROGRAM TSPEC
     DO N = 1, SIZE(LINE)
         WRITE (6,'(I3,1H/,I3,A1,$)',ADVANCE='NO') N, SIZE(LINE), CHAR(13)
         EI = LineEnergy(Z_ANODE, LINE(N))
-        WRITE (102,201) EI, ANODECHAR(N, KAPPA)
+        WRITE (102,201) EI, ANODE_CHAR(N, Z_ANODE)
     END DO
 
     !CALCULATING TUBE SPECTRUM USING ENERGY VALUES CALCULATED EARLIER
@@ -79,31 +85,26 @@ PROGRAM TSPEC
     WRITE (6,*) 'CALCULATING TUBE SPECTRUM'
     DO CNT = 1, NSTEP
         READ (100,200) EI
+        ITMP = ANODE_CONT(EI)
         DO N = 1, SIZE(LINE)
             WRITE (6,'(I9,1H/,I9,3H-->,I9,1H/,I9,A1,$)',ADVANCE='NO'), CNT, NSTEP, N, SIZE(LINE), CHAR(13)
             EA = LineEnergy(Z_ANODE, LINE(N))
-            IF (EA.EQ.0) CYCLE
-            K = ANINT(EA/ESTEP)*ESTEP
-            IF (K.EQ. EI) THEN
-                EC = LineEnergy(Z_ANODE, LINE(N))
-                WRITE (103,201) EC-(ESTEP/10), ANODECONT(EC-(ESTEP/100))
-                WRITE (103,201) EC, ANODECONT(EC) + ANODECHAR(N, KAPPA)
-                WRITE (103,201) EC+(ESTEP/10), ANODECONT(EC+(ESTEP/100))
-                CYCLE
+            IF (EA.EQ.0 .OR. EA.LT.EMIN) CYCLE
+            IF (EA.GE.EI .AND. EA.LT.(EI+ESTEP)) THEN
+                ITMP = ITMP + ANODE_CHAR(N, Z_ANODE)
             ENDIF
         END DO
-        WRITE (103,201) EI, ANODECONT(EI)
+        WRITE (103,201) EI, ITMP
     END DO
 
         WRITE (6,*) 'WRITING OUTPUT TO FILE'
     REWIND(103)
     DO
-        READ (103,201,END=999) EI, I
-        WRITE (121,201) EI, I
+        READ (103,201,END=999) EI, ITMP
+        WRITE (121,201) EI, ITMP
     END DO
 200 FORMAT(ES32.20E3)
-201 FORMAT(ES32.20E3, 2X, ES32.20E4)
-202 FORMAT(I3, I3, ES32.20E3, 2X, 2ES32.20E4)
+201 FORMAT(ES32.20E3, 2X, ES32.20E4, 2X)
 999 CLOSE(100)
     CLOSE(101)
     CLOSE(102)

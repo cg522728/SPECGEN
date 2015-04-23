@@ -1,19 +1,23 @@
 PROGRAM STSPEC
     USE     :: ISO_FORTRAN_ENV
     USE     :: xraylib
+    USE     :: TYPES
     USE     :: XRLDATA
     USE     :: CFGDATA
     USE     :: ANODE
     USE     :: CONSTANTS
     USE     :: SECCOMP
+    USE     :: CONVOLUTE
 
     IMPLICIT NONE
-    INTEGER :: CNT, N, CNT2, NELEMENT
+    INTEGER :: CNT, CNT2, N
     CHARACTER(LEN=16)   :: ARG0
-    REAL(16) :: EI, I, K, EC, EA, ITMP
-    REAL(16)    :: KAPPA, PI
-    REAL(16)    :: ISAM1, ISAM2
-    REAL        :: START, FINISH
+    REAL(DP) :: EI, EC, EA
+    REAL(QP) :: I, ITMP
+    REAL(QP)    :: PI
+    REAL(QP)    :: TMP, I_CHAR
+    REAL(QP), DIMENSION(:,:), ALLOCATABLE   :: I_ST_CHAR
+    REAL(QP), DIMENSION(:), ALLOCATABLE   :: I_ST_CONT
 
     PI = 2.D0*DASIN(1.D0)
 
@@ -24,7 +28,7 @@ PROGRAM STSPEC
     OPEN(UNIT=112, STATUS='SCRATCH')    !SECONDARY TARGET CHARACTERISTIC LINES
     OPEN(UNIT=113, STATUS='SCRATCH')    !SECONDARY TARGET SPECTRUM
 
-    OPEN(UNIT=121,FILE='OUTPUT.DAT', ACCESS='APPEND', STATUS='REPLACE')
+    OPEN(UNIT=121,FILE='OUTPUT_ST.DAT', ACCESS='APPEND', STATUS='REPLACE')
 
     !SET UP CONFIG-FILES
     CALL INITCFG()
@@ -58,14 +62,25 @@ PROGRAM STSPEC
 !
 !    !CALCULATING INTENSITIES OF CHARACTERISTIC LINES
 !    WRITE (6,*) 'CALCULATING INTENSITIES OF CHARACTERISTIC LINES'
-!    DO CNT = 1, SIZE(LINE)
-!        DO N = 1, CP_ST%NELEMENTS
-!            WRITE (6,'(I3,1H/,I3,A1,$)',ADVANCE='NO') CNT, SIZE(LINE), CHAR(13)
-!            EI = LineEnergy(CP_ST%ELEMENTS(N), LINE(CNT))
-!            IF (EI.EQ.0) CYCLE
-!            WRITE (112,201) EI, SECCOMPCHAR(CNT, CP_ST%ELEMENTS(N), KAPPA)
+!        DO N = 1, SIZE(LINE)
+!            WRITE (6,'(I10,1H/,I10,3H-->,I3,1H/,I3,A1,$)',ADVANCE='NO'), CNT, NSTEP, N, SIZE(LINE), CHAR(13)
+!            EA = LineEnergy(Z_ANODE, LINE(N))
+!            IF (EA.EQ.0) CYCLE
+!            IF (ISNAN(EA)) CYCLE
+!            WRITE (112,201) EA, SECTRAYL(N)
+!            EC = ComptonEnergy(DBLE(EA), DBLE((PI/2)-A_ST_AZIM_OUT))
+!            WRITE (112,201) EC, SECTCOMP(N)
+!            !$OMP PARALLEL DO SHARED(ITMP) PRIVATE(CNT2, EC)
+!            DO CNT2 = 1, CP_ST%NELEMENTS
+!                EC = LineEnergy(CP_ST%ELEMENTS(CNT2), LINE(N))
+!                IF (EC.EQ.0) CYCLE
+!                WRITE (112,201) EC, SECCOMPCHAR(N, CP_ST%ELEMENTS(CNT2))
+!            END DO
+!            !$OMP END PARALLEL DO
 !        END DO
-!    END DO
+!    REWIND(112)
+!    REWIND(111)
+!    REWIND(100)
 
     !CALCULATING SECONDARY TARGET SPECTRUM USING ENERGY VALUES
     !CALCULATED EARLIER. IF THERE IS CHARACTERISTIC LINE AT THAT
@@ -80,33 +95,56 @@ PROGRAM STSPEC
     WRITE (6,*) 'CALCULATING SECONDARY TARGET SPECTRUM'
     REWIND(100)
 
+    ALLOCATE(I_ST_CHAR(SIZE(LINE),CP_ST%NELEMENTS))
+    ALLOCATE(I_ST_CONT(NSTEP))
+
     DO CNT = 1, NSTEP
         READ (100,200) EI
-        ITMP = SECTCONT(EI)
+        I_ST_CONT(CNT) = SECT_CONT(EI)
+        WRITE (6,'(I10,1H/,I10,A1,$)',ADVANCE='NO'), CNT, NSTEP, CHAR(13)
+    END DO
+    REWIND(100)
+    DO CNT= 1, SIZE(LINE)
+        DO CNT2 = 1, CP_ST%NELEMENTS
+            I_ST_CHAR(CNT, CNT2) = SECT_CHAR(CNT, CP_ST%ELEMENTS(CNT2))
+        END DO
+        WRITE (6,'(I10,1H/,I10,A1,$)',ADVANCE='NO'), CNT, SIZE(LINE), CHAR(13)
+    END DO
+
+    DO CNT = 1, NSTEP
+        READ (100,200) EI
+        TMP = 0_QP
+        I_CHAR = 0_QP
+        ITMP = I_ST_CONT(CNT)
         DO N = 1, SIZE(LINE)
             WRITE (6,'(I10,1H/,I10,3H-->,I3,1H/,I3,A1,$)',ADVANCE='NO'), CNT, NSTEP, N, SIZE(LINE), CHAR(13)
             EA = LineEnergy(Z_ANODE, LINE(N))
             IF (EA.EQ.0) CYCLE
             IF (ISNAN(EA)) CYCLE
             IF (EA.GE.EI .AND. EA.LT.(EI+ESTEP)) THEN
-                ITMP = ITMP + SECTRAYL(KAPPA, N)
+                !TMP = AN_SCAT_RAYL(N)
+                ITMP = ITMP + TMP
             ENDIF
             EC = ComptonEnergy(DBLE(EA), DBLE((PI/2)-A_ST_AZIM_OUT))
             IF (EC.GE.EI .AND. EC.LT.(EI+ESTEP)) THEN
-                ITMP = ITMP + SECTCOMP(KAPPA, N)
+                !TMP = AN_SCAT_COMP(N)
+                ITMP = ITMP + TMP
             ENDIF
-            !$OMP PARALLEL DO SHARED(ITMP) PRIVATE(CNT2, EC)
             DO CNT2 = 1, CP_ST%NELEMENTS
                 EC = LineEnergy(CP_ST%ELEMENTS(CNT2), LINE(N))
                 IF (EC.EQ.0) CYCLE
                 IF (EC.LT.EI) CYCLE
                 IF (EC.GE.EI .AND. EC.LT.(EI+ESTEP)) THEN
-                    ITMP = ITMP + SECCOMPCHAR(N, CP_ST%ELEMENTS(CNT2),KAPPA)
+                    !I_CHAR = SECT_CHAR(N, CP_ST%ELEMENTS(CNT2))
+                    I_CHAR = I_ST_CHAR(N, CNT2)
+                    ITMP = ITMP + I_CHAR
                 ENDIF
             END DO
-            !$OMP END PARALLEL DO
         END DO
         WRITE (104,201) EI, ITMP
+        IF (ISNAN(ITMP)) THEN
+            WRITE (6,*) 'ERROR:', EI, EC, ITMP
+        ENDIF
     END DO
     WRITE (6,*) 'WRITING OUTPUT TO FILE'
     REWIND(104)
@@ -114,10 +152,11 @@ PROGRAM STSPEC
         READ (104,201,END=999) EI, I
         WRITE (121,201) EI, I
     END DO
+    REWIND(104)
 
+CALL CONVOLUTE_SPEC()
 200 FORMAT(ES32.20E3)
 201 FORMAT(ES32.20E3, 2X, ES32.20E4)
-202 FORMAT(I3, I3, ES32.20E3, 2X, 2ES32.20E4)
 999 CLOSE(100)
     CLOSE(104)
     CLOSE(111)

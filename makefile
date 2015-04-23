@@ -1,27 +1,52 @@
-odir = modules
-srcdir = src
-_obj = \
-	xraylib.o\
-	cfgdata.o\
-	xrldata.o\
-	constants.o\
-	anode.o\
-	pella.o\
-	seccomp.o\
-	micromatter.o
-obj = $(patsubst %,$(odir)/%,$(_obj))
-all:
-	gfortran -fopenmp -funderscoring -cpp -Wall -L/usr/lib64 -c src/modules/xraylib.f90 -o modules/xraylib.o -lxrlf03 -lxrl -lgomp
-	gfortran -fopenmp -funderscoring -cpp -Wall -L/usr/lib64 -c src/modules/cfgdata.f90 -o modules/cfgdata.o -lxrlf03 -lxrl -lgomp
-	gfortran -fopenmp -funderscoring -cpp -Wall -L/usr/lib64 -c src/modules/xrldata.f90 -o modules/xrldata.o -lxrlf03 -lxrl -lgomp
-	gfortran -fopenmp -funderscoring -cpp -Wall -L/usr/lib64 -c src/modules/constants.f90 -o modules/constants.o -lxrlf03 -lxrl -lgomp
-	gfortran -fopenmp -funderscoring -cpp -Wall -L/usr/lib64 -c src/modules/anode.f90 -o modules/anode.o -lxrlf03 -lxrl -lgomp
-	gfortran -fopenmp -funderscoring -cpp -Wall -L/usr/lib64 -c src/modules/pella.f90 -o modules/pella.o -lxrlf03 -lxrl -lgomp
-	gfortran -fopenmp -funderscoring -cpp -Wall -L/usr/lib64 -c src/modules/seccomp.f90 -o modules/seccomp.o -lxrlf03 -lxrl -lgomp
-	gfortran -fopenmp -funderscoring -cpp -Wall -L/usr/lib64 -c src/modules/micromatter.f90 -o modules/micromatter.o -lxrlf03 -lxrl -lgomp
-	gfortran -fopenmp -funderscoring -cpp -Wall -L/usr/lib64 -o micromatter src/micromatter.f90 $(obj) -lxrlf03 -lxrl -lgomp
-	gfortran -fopenmp -funderscoring -cpp -Wall -L/usr/lib64 -o tspec src/tspec.f90 $(obj) -lxrlf03 -lxrl -lgomp
-	gfortran -fopenmp -funderscoring -cpp -Wall -L/usr/lib64 -o stspec src/stspec.f90 $(obj) -lxrlf03 -lxrl -lgomp
+CC = gfortran
+CFLAGS = -funderscoring -O0 -g3 -pg -p -Wall -fopenmp -fmessage-length=0 -cpp
+LIBS = -lxrlf03 -lxrl -lgomp
+_SOURCES =\
+	types\
+	cfgdata\
+	xrldata\
+	constants\
+	anode\
+	math\
+	seccomp\
+	micromatter\
+	convolute
+_MAINS =\
+	mmsens\
+	tspec\
+	stspec\
+	deteff
+_OBJECTS = $(_SOURCES:%=%.o)
+_EXEC = $(_MAINS)
+SDIR = src
+WDIR = OUTPUT
+MODDIR = modules
+SOURCES = $(patsubst %,$(MODDIR:%=$(SDIR)/%)/%,$(_SOURCES:%=%.f90))
+OBJECTS = $(patsubst %,$(MODDIR:%=$(WDIR)/%)/%,$(_OBJECTS))
+MAINS = $(patsubst %,$(SDIR)/%,$(_MAINS:%=%.f90))
+EXEC = $(patsubst %,$(WDIR)/%,$(_EXEC))
+
+all: executables
+
+.PHONY: all
+
+.PHONY: modules $(_SOURCES)
+
+.PHONY: executables $(_MAINS)
+
+executables :	$(_MAINS)
+
+$(_MAINS): modules
+	$(CC) $(CFLAGS) -o $(patsubst %,$(WDIR)/%,$@) $(patsubst %,$(SDIR)/%,$@).f90 $(OBJECTS) -I $(MODDIR:%=$(WDIR)/%) $(LIBS)
+
+modules : $(_SOURCES)
+
+$(_SOURCES): xraylib.o
+		$(CC) $(CFLAGS) -c $(patsubst %,$(MODDIR:%=$(SDIR)/%)/%,$@).f90 -o $(patsubst %,$(MODDIR:%=$(WDIR)/%)/%,$@).o -J $(MODDIR:%=$(WDIR)/%) $(LIBS)
+		
+xraylib.o:
+	$(CC) -funderscoring -O0 -g3 -pg -p -fopenmp -fmessage-length=0 -cpp -L/usr/lib64 -c $(SDIR)/$(MODDIR)/xraylib.f90 -o $(WDIR)/$(MODDIR)/xraylib.o -J $(MODDIR:%=$(WDIR)/%) $(LIBS)
 clean:
 	rm -fr modules/*.o
 	rm -fr *.mod
+	rm -fr mmsens deteff

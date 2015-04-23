@@ -1,117 +1,120 @@
 MODULE MICROMATTER
     USE :: xraylib
+    USE :: TYPES
     USE :: XRLDATA
     USE :: CFGDATA
     USE :: ANODE
     USE :: SECCOMP
+    USE :: MATHCHG
+    implicit none
 CONTAINS
-    FUNCTION MM1(N, NELEMENT, KAPPA)
+    FUNCTION MM1(N, NELEMENT, I_CHAR)
         IMPLICIT NONE
-        REAL(16) :: MM1
-        INTEGER :: CNT, CNT2
+        REAL(QP) :: MM1
         INTEGER, INTENT(IN) :: NELEMENT
         INTEGER, INTENT(IN) :: N
-        REAL(16) :: ITMP = 0
-        REAL(16) :: PI
-        REAL(16), INTENT(IN) :: KAPPA
-        REAL(16)    :: I_CHAR
-        REAL(16), DIMENSION(:), ALLOCATABLE :: TMP, EI
+        REAL(QP), DIMENSION(:,:), INTENT(IN) :: I_CHAR
+
+        REAL(QP), DIMENSION(:), ALLOCATABLE :: ITMP
+        REAL(QP), DIMENSION(:), ALLOCATABLE :: TMP
+
+        INTEGER     :: CNT
+        INTEGER     :: CNT2
+        REAL(QP)    :: PI = 0_QP
+        REAL(QP)    :: INTEN = 0_QP
+        REAL(DP)    :: EI = 0_DP
+
         ALLOCATE(TMP(SIZE(LINE)))
-        ALLOCATE(EI(SIZE(LINE)))
-        DATA ITMP/0/
-        TMP = 0_16
-        EI = 0._16
+        ALLOCATE(ITMP(CP_ST%NELEMENTS))
+
+        TMP = 0_QP
+        ITMP = 0_QP
         PI = 2.D0*DASIN(1.D0)
-        !WRITE (6,'(1H[,A16,2H](,A3,1H),I32,I32,ES32.20E3)') 'MM1', 'IN', N, NELEMENT, KAPPA
+
         DO CNT2 = 1, CP_ST%NELEMENTS
-            I_CHAR = SECCOMPCHAR(N, CP_ST%ELEMENTS(CNT2), KAPPA)
-            !WRITE (6,'(1H[,A16,2H](,A3,1H),6HICHAR=,ES32.20E3)') 'MM1', 'DEB', I_CHAR
-            DO CNT = 2, 3!SIZE(LINE)
-                EI(CNT) = LineEnergy(CP_ST%ELEMENTS(CNT2), LINE(CNT))
-                !WRITE (6,'(1H[,A16,2H](,A3,1H),3HEI=ES32.20E3)') 'MM1', 'DEB', EI(CNT)
-            END DO
             DO CNT = 1, SIZE(LINE)
-                IF (EI(CNT).LE. 0) CYCLE
-                IF (EI(CNT).LE. LineEnergy(NELEMENT, LINE(N))) CYCLE
-                    TMP(CNT) = I_CHAR&
-                        *CS_Photo_CP(STR_SAMPLE, DBLE(EI(CNT)))
+                WRITE (6,'(I4,1H/,I4,A1,$)',ADVANCE='NO') CNT, SIZE(LINE), CHAR(13)
+                INTEN = I_CHAR(CNT2,CNT)
+                EI = LineEnergy(CP_ST%ELEMENTS(CNT2), LINE(CNT))
+                IF (EI.LE. 0) CYCLE
+                    TMP(CNT) = INTEN&
+                        *CS_FLUOR_CHG(NELEMENT, N, EI)
             END DO
-            ITMP = ITMP + SUM(TMP)&
-                *((SA_ST_OUT*CONC)/(4*PI*SIN(A_ST_AZIM_IN)))&
-                *FLUORYIELD_CHG(NELEMENT, SHELL(N))&
-                *RadRate(NELEMENT, LINE(N))
-!WRITE (6,'(1H[,A16,2H](,A3,1H),5HITMP=,ES32.20E3)') 'MM1', 'DEB', ITMP
+            ITMP(CNT2) = SUM(TMP)*CP_ST%massFractions(CNT2)
+            TMP = 0_QP
         END DO
-        MM1 = ITMP
-WRITE (6,'(1H[,A16,2H](,A3,1H),ES32.20E3)') 'MM1', 'OUT', MM1
+        MM1 = SUM(ITMP)*((SA_ST_OUT*CONC)/(4*PI*SIN(A_ST_AZIM_IN)))
+        WRITE (6,'(1H[,A16,2H](,A3,1H),ES32.20E3)') 'MM1', 'OUT', MM1
         DEALLOCATE(TMP)
-        DEALLOCATE(EI)
         RETURN
     END FUNCTION
-    FUNCTION MM2(N, NELEMENT, KAPPA)
+    FUNCTION MM2(N, NELEMENT)
         IMPLICIT NONE
-        REAL(16) :: MM2
-        INTEGER :: CNT, CNT2, NELEMENT
-        INTEGER :: LINES, SHELLS, N
-        REAL(16) :: ITMP, TMPR, TMPC
-        REAL(16), DIMENSION(:), ALLOCATABLE :: TMP, EI
-        REAL(16) :: PI, KAPPA, EC
-        DATA ITMP/0/
+        REAL(QP) :: MM2
+        INTEGER, INTENT(IN) :: N
+        INTEGER, INTENT(IN) :: NELEMENT
+
+        INTEGER :: CNT
+        REAL(QP) :: ITMP = 0_QP
+        REAL(QP) :: TMPR = 0_QP
+        REAL(QP)    :: TMPC = 0_QP
+        REAL(QP), DIMENSION(:), ALLOCATABLE :: TMP
+        REAL(DP) :: EI = 0_DP
+        REAL(QP) :: PI = 0_QP
+        REAL(DP)    :: EC = 0_DP
+
         ALLOCATE(TMP(SIZE(LINE)))
-        ALLOCATE(EI(SIZE(LINE)))
-        TMP = 0._16
-        EI = 0._16
+        TMP = 0._QP
+
         PI = 2.D0*DASIN(1.D0)
+
         DO CNT = 1, SIZE(LINE)
-            EI(CNT) = LineEnergy(Z_ANODE, LINE(CNT))
-        END DO
-        DO CNT = 2, 3!SIZE(LINE)
-            IF (EI(CNT).LE. 0) CYCLE
-            IF (EI(CNT).LE. LineEnergy(NELEMENT, LINE(N))) CYCLE
-                TMPR = SECTRAYL(KAPPA, N)&
-                    *CS_Photo_CP(STR_SAMPLE, DBLE(EI(CNT)))
-                EC = ComptonEnergy(DBLE(EI(CNT)), DBLE(A_ST_AZIM_OUT))
-                TMPC = SECTCOMP(KAPPA, N)&
-                    *CS_Photo_CP(STR_SAMPLE, DBLE(EC))
+            WRITE (6,'(I4,1H/,I4,A1,$)',ADVANCE='NO') CNT, SIZE(LINE), CHAR(13)
+            TMPR = 0_QP
+            TMPC = 0_QP
+            EI = LineEnergy(Z_ANODE, LINE(CNT))
+            IF (EI.LE. EdgeEnergy(NELEMENT, SHELL(N)).OR. EI.EQ. 0) CYCLE
+                TMPR = AN_SCAT_RAYL(CNT)&
+                        *CS_FLUOR_CHG(NELEMENT, N, EI)
+                EC = ComptonEnergy(EI, DBLE(A_ST_AZIM_OUT))
+                IF (EC.LT.EdgeEnergy(NELEMENT, SHELL(N)) .OR. EC.EQ.0) THEN
+                    TMPC = 0_QP
+                ELSE
+                    TMPC = AN_SCAT_COMP(CNT)&
+                            *CS_FLUOR_CHG(NELEMENT, N, EC)
+                ENDIF
             TMP(CNT) = TMPR + TMPC
         END DO
-        ITMP = SUM(TMP)&
-            *((SA_ST_OUT*CONC)/(4*PI*SIN(A_ST_AZIM_IN)))&
-            *FLUORYIELD_CHG(NELEMENT, SHELL(N))&
-            *RadRate(NELEMENT, LINE(N))
-        MM2 = ITMP
+        ITMP = SUM(TMP)
+        MM2 = ITMP*((SA_ST_OUT*CONC)/(4*PI*SIN(A_ST_AZIM_IN)))
+        WRITE (6,'(1H[,A16,2H](,A3,1H),ES32.20E3)') 'MM2', 'OUT', MM2
         DEALLOCATE(TMP)
-        DEALLOCATE(EI)
         RETURN
     END FUNCTION
-    FUNCTION MM3(N, NELEMENT, KAPPA)
+    FUNCTION MM3(N, NELEMENT)
         IMPLICIT NONE
-        REAL(16) :: MM3
-        INTEGER :: CNT, CNT2, Z, INTSTEP
-        INTEGER :: LINES, SHELLS, N, ECNT, NELEMENT
-        REAL(16) :: ITMP
-        REAL(16) :: PI, KAPPA
-        REAL(16), DIMENSION(:), ALLOCATABLE :: TMP, EI
-        DATA ITMP/0/
+        REAL(QP)    :: MM3
+        INTEGER,    INTENT(IN)  :: N
+        INTEGER,    INTENT(IN)  :: NELEMENT
+        REAL(DP)    :: E_ST_EDGE = 0_DP
+        REAL(DP)    :: ETUBE = 0_DP
+        REAL(QP)    :: PI = 0_QP
+        REAL(QP)    :: TMP = 0_QP
+
         PI = 2.D0*DASIN(1.D0)
-        INTSTEP = INT((VTUBE-EdgeEnergy(NELEMENT, SHELL(N)))/ESTEP)
-        ALLOCATE(EI(0:INTSTEP))
-        ALLOCATE(TMP(0:INTSTEP))
-        EI = 0._16
-        TMP = 0._16
-        DO ECNT = 0, INTSTEP
-            EI(ECNT) = EdgeEnergy(NELEMENT, SHELL(N)) + (DBLE(ECNT)*ESTEP)
-        END DO
-        DO ECNT = 0, INTSTEP
-            TMP(ECNT) = SECTCONT(EI(ECNT))&
-                *CS_Photo_CP(STR_SAMPLE, DBLE(EI(ECNT)))*ESTEP
-        END DO
-        ITMP = SUM(TMP)&
-            *((SA_ST_IN*CONC)/(4*PI*SIN(A_ST_AZIM_IN)))&
-            *FLUORYIELD_CHG(NELEMENT, SHELL(N))&
-            *RadRate(NELEMENT, LINE(N))
-        MM3 = ITMP
-        DEALLOCATE(EI)
-        DEALLOCATE(TMP)
+        ETUBE = DBLE(VTUBE)
+        E_ST_EDGE = EdgeEnergy(NELEMENT, SHELL(N))
+        TMP = INTEGRATE(DERIV_MM3, E_ST_EDGE, ETUBE, INT(10), NELEMENT, N)
+        MM3 = TMP*((SA_ST_IN*CONC)/(4*PI*SIN(A_ST_AZIM_IN)))
+        RETURN
     END FUNCTION
+    FUNCTION DERIV_MM3(EI, Z, N)
+        implicit none
+        REAL(QP)    :: DERIV_MM3
+        REAL(DP),   INTENT(IN)     :: EI
+        INTEGER,    INTENT(IN)     :: Z
+        INTEGER,    INTENT(IN)     :: N
+        DERIV_MM3 = SECT_CONT(EI)&
+                *CS_FLUOR_CHG(Z, N, EI)
+    END FUNCTION DERIV_MM3
 END MODULE

@@ -1,34 +1,35 @@
 MODULE CFGDATA
     USE :: xraylib
+    USE :: TYPES
     IMPLICIT NONE
     PUBLIC
-    REAL(16)                     :: VTUBE
-    REAL(16)                     :: ITUBE
-    REAL(16)                     :: ESTEP, EMIN
-    REAL(16)                     :: CONC
+    REAL(DP)                     :: VTUBE
+    REAL(QP)                     :: ITUBE
+    REAL(DP)                     :: ESTEP, EMIN
+    REAL(QP)                     :: CONC
     INTEGER                     :: NSTEP
     INTEGER                     :: Z_ANODE
     INTEGER                     :: Z_WINDOW
     INTEGER                     :: Z_FILTER
-    REAL(16)                     :: D_WINDOW
-    REAL(16)                     :: D_FILTER
-    REAL(16)                     :: A_INCID
-    REAL(16)                     :: A_TAKE_OFF
-    REAL(16)                     :: A_ST_POL
-    REAL(16)                     :: A_ST_AZIM_IN
-    REAL(16)                     :: A_ST_AZIM_OUT
-    REAL(16)                     :: A_SAM_IN
-    REAL(16)                     :: A_SAM_OUT
-    REAL(16)                     :: SA_ANODE_OUT
-    REAL(16)                     :: SA_ST_IN
-    REAL(16)                     :: SA_ST_OUT
-    REAL(16)                    :: D_DET_WINDOW
+    REAL(QP)                     :: D_WINDOW
+    REAL(QP)                     :: D_FILTER
+    REAL(QP)                     :: A_INCID
+    REAL(QP)                     :: A_TAKE_OFF
+    REAL(QP)                     :: A_ST_POL
+    REAL(QP)                     :: A_ST_AZIM_IN
+    REAL(QP)                     :: A_ST_AZIM_OUT
+    REAL(QP)                     :: A_SAM_IN
+    REAL(QP)                     :: A_SAM_OUT
+    REAL(QP)                     :: SA_ANODE_OUT
+    REAL(QP)                     :: SA_ST_IN
+    REAL(QP)                     :: SA_ST_OUT
+    REAL(QP)                    :: D_DET_WINDOW
     INTEGER                    :: Z_DET_WINDOW
-    REAL(16)                    :: D_DET_GAP
+    REAL(QP)                    :: D_DET_GAP
     INTEGER                    :: Z_DET_GAP
     INTEGER                    :: Z_DET_DL
-    REAL(16)                    :: D_DET_DL
-    REAL(16)                    :: D_DET_BODY
+    REAL(QP)                    :: D_DET_DL
+    REAL(QP)                    :: D_DET_BODY
     INTEGER                    :: Z_DET_BODY
     CHARACTER(LEN=16)           :: STR_SECTARGET
     CHARACTER(LEN=16)           :: STR_SAMPLE
@@ -164,7 +165,7 @@ CONTAINS
         SA_ANODE_OUT = 1
         Z_WINDOW = 4
         D_WINDOW = 300.
-        A_ST_POL = 45
+        A_ST_POL = 90
         A_ST_AZIM_IN = 45
         A_ST_AZIM_OUT = 45
         SA_ST_IN = 1
@@ -363,14 +364,14 @@ CONTAINS
         WRITE (2,202) STR_SECTARGET, STR_TYPE, A_ST_POL, A_ST_AZIM_IN, A_ST_AZIM_OUT,&
             SA_ST_IN, SA_ST_OUT
         GO TO 8
-10       REWIND(2)
+10      REWIND(2)
         !IF CHOICE IS NOT 0, THEN REWIND FILE AND READ UNTIL CORRECT
         !CONFIGURATION HAS BEEN READ
         DO CNT = 1, CHOICE
             READ (2,202,END=10) STR_SECTARGET, STR_TYPE, A_ST_POL, A_ST_AZIM_IN, A_ST_AZIM_OUT, SA_ST_IN,&
                 SA_ST_OUT
         END DO
-11       CLOSE(2)
+        CLOSE(2)
         !CHECKING THE NUMBER OF CONFIGURATIONS STORED IN
         !'filt.dat'
         OPEN(UNIT=3, FILE='filt.dat',ACCESS='SEQUENTIAL')
@@ -466,9 +467,9 @@ CONTAINS
         !#TO ANGLES IN RADIAN                                                            #
         !#################################################################################
         IMPLICIT NONE
-        REAL(16) :: ANG
-        REAL(16) :: DEG2RAD
-        REAL(16) :: PI
+        REAL(QP) :: ANG
+        REAL(QP) :: DEG2RAD
+        REAL(QP) :: PI
         PI = 2.D0*DASIN(1.D0)
         DEG2RAD = ANG*(PI/180)
     END FUNCTION DEG2RAD
