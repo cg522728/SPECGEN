@@ -1,5 +1,5 @@
 CC = gfortran
-CFLAGS = -funderscoring -O0 -g3 -pg -p -Wall -fopenmp -fmessage-length=0 -cpp
+CFLAGS = -funderscoring -fdump-tree-original-raw -O0 -g3 -pg -p -Wall -fopenmp -fmessage-length=0 -cpp
 LIBS = -lxrlf03 -lxrl -lgomp
 _SOURCES =\
 	types\

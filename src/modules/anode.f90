@@ -16,10 +16,9 @@ CONTAINS
         REAL(DP)    :: E1 = 0_DP
         REAL(DP)    :: E2 = 0_DP
 
-        E1 = EI
-        E2 = EI + ESTEP
-        ANODE_CONT = INTEGRATE(DERIV_ANODE_CONT, E1, E2, INT(10), Z_ANODE)&
-                        *TUBE_ATTEN(EI)
+        E1 = EI - (ESTEP/2)
+        E2 = EI + (ESTEP/2)
+        ANODE_CONT = INTEGRATE(DERIV_ANODE_CONT, E1, E2, INT(25), Z_ANODE)
         RETURN
     END FUNCTION ANODE_CONT
     FUNCTION ANODE_CHAR(N, Z_INT)
@@ -59,9 +58,8 @@ CONTAINS
                     *STOPPINGFACTOR(N, Z_INT)&
                     *CALC_F(E_EDGE, Z_INT, N)&
                     *TRANSPROB(Z_INT, LINE(N))&
-                    !*FLUORYIELD_CHG(Z_INT, SHELL(N))&
-                    *FLUORYIELD(Z_INT, SHELL(N))&
-                    *TUBE_ATTEN(E_CHAR)
+                    *FLUORYIELD_CHG(Z_INT, SHELL(N))!&
+                    !*FLUORYIELD(Z_INT, SHELL(N))
         RETURN
     END FUNCTION ANODE_CHAR
     FUNCTION DERIV_ANODE_CONT(EI, Z)
@@ -74,14 +72,18 @@ CONTAINS
         REAL(QP)    :: EBEL = 1.37E9_QP
         REAL(QP) :: X = 0_QP
         REAL(QP) :: N_CONT = 0_QP
+        REAL(DP)    :: UZ = 0_DP
+        REAL(DP)    :: ETUBE
 
-        IF (EI.GE.VTUBE) THEN
+        ETUBE = DBLE(VTUBE)
+        UZ = ETUBE/EI
+        IF (EI.GE.ETUBE) THEN
             DERIV_ANODE_CONT = 0_QP
             RETURN
         ENDIF
         CONST = SA_ANODE_OUT*ITUBE*EBEL*Z
-        X = 1.109-0.00435*Z+0.00175*VTUBE
-        N_CONT = CONST*(((VTUBE/EI)-1)**X)*CALC_F(EI, Z)
+        X = 1.0314-0.0032*Z+0.0047*VTUBE
+        N_CONT = CONST*((UZ-1)**X)*CALC_F(EI, Z)
         DERIV_ANODE_CONT = N_CONT
         RETURN
     END FUNCTION DERIV_ANODE_CONT
@@ -112,7 +114,7 @@ CONTAINS
         REAL(QP)    :: TMP = 0_QP
 
         IF (PRESENT(N)) TAU = CS_Photo(Z, EI)
-        IF (.NOT.PRESENT(N)) TAU = CS_Energy(Z, EI)
+        IF (.NOT.PRESENT(N)) TAU = CS_TOTAL(Z, EI)
         TMP = TAU*2*DDF(EI, Z)*(SIN(A_INCID)/SIN(A_TAKE_OFF))
         CALC_F = (1-EXP(-TMP))/TMP
         RETURN
@@ -205,7 +207,7 @@ CONTAINS
         TMP2 = SQRT(UZ)*LOG(UZ)+2*(1-SQRT(UZ))
         TMP3 = 16.05_QP*SQRT(J/E_EDGE)*(TMP2/TMP)
         S = ((ZCON*BCON)/DBLE(Z))*TMP*(1+TMP3)
-        STOPPINGFACTOR = 1/S
+        STOPPINGFACTOR = S
         RETURN
     END FUNCTION STOPPINGFACTOR
     FUNCTION EBEL_CONST(N, Z)

@@ -1,0 +1,46 @@
+!    -*- f90 -*-
+! Note: the context of this file is case sensitive.
+
+python module xrldata ! in 
+    interface  ! in :xrldata
+        module xrldata ! in :xrldata:../src/modules/xrldata.f90
+            integer, optional,dimension(111) :: line=kl1_line
+            integer, optional,dimension(111) :: shell=k_shell
+            function cs_fluor_chg(z,n,ei) ! in :xrldata:../src/modules/xrldata.f90:xrldata
+                integer :: z
+                integer :: n
+                real(kind=8) :: ei
+                real(kind=8) :: cs_fluor_chg
+            end function cs_fluor_chg
+            function fluoryield_chg(z,shellin) ! in :xrldata:../src/modules/xrldata.f90:xrldata
+                integer :: z
+                integer :: shellin
+                real(kind=8) :: fluoryield_chg
+            end function fluoryield_chg
+            function mac(z,e) ! in :xrldata:../src/modules/xrldata.f90:xrldata
+                integer :: z
+                real(kind=8) :: e
+                real(kind=8) :: mac
+            end function mac
+            function mac_comp(cp,e) ! in :xrldata:../src/modules/xrldata.f90:xrldata
+                type(compounddata), pointer :: cp
+                real(kind=8) :: e
+                real(kind=8) :: mac_comp
+            end function mac_comp
+            function cs_fluor_cp_chg(cp,n,ec) ! in :xrldata:../src/modules/xrldata.f90:xrldata
+                type(compounddata), pointer :: cp
+                integer :: n
+                real(kind=8) :: ec
+                real(kind=8) :: cs_fluor_cp_chg
+            end function cs_fluor_cp_chg
+            function transprob(z,n) ! in :xrldata:../src/modules/xrldata.f90:xrldata
+                integer :: z
+                integer :: n
+                real(kind=8) :: transprob
+            end function transprob
+        end module xrldata
+    end interface 
+end python module xrldata
+
+! This file was auto-generated with f2py (version:2).
+! See http://cens.ioc.ee/projects/f2py2e/

@@ -12,6 +12,8 @@ PROGRAM STSPEC
     IMPLICIT NONE
     INTEGER :: CNT, CNT2, N
     CHARACTER(LEN=16)   :: ARG0
+    CHARACTER(LEN=16)    :: LABEL
+    CHARACTER(LEN=3)    :: NLABEL
     REAL(DP) :: EI, EC, EA
     REAL(QP) :: I, ITMP
     REAL(QP)    :: PI
@@ -43,6 +45,8 @@ PROGRAM STSPEC
     ELSEIF (CNT.EQ. 1) THEN
         CALL READCFG()
     ENDIF
+
+    CALL DISPCFG()
 
     WRITE (6,*) 'INITIALIZING ENERGY VALUES'
     DO CNT = 1, NSTEP
@@ -116,19 +120,24 @@ PROGRAM STSPEC
         TMP = 0_QP
         I_CHAR = 0_QP
         ITMP = I_ST_CONT(CNT)
+        LABEL = ''
         DO N = 1, SIZE(LINE)
             WRITE (6,'(I10,1H/,I10,3H-->,I3,1H/,I3,A1,$)',ADVANCE='NO'), CNT, NSTEP, N, SIZE(LINE), CHAR(13)
             EA = LineEnergy(Z_ANODE, LINE(N))
             IF (EA.EQ.0) CYCLE
             IF (ISNAN(EA)) CYCLE
             IF (EA.GE.EI .AND. EA.LT.(EI+ESTEP)) THEN
-                !TMP = AN_SCAT_RAYL(N)
+                TMP = AN_SCAT_RAYL(N)
                 ITMP = ITMP + TMP
+                TMP = 0_QP
+                LABEL = TRIM(LABEL)//'R'
             ENDIF
             EC = ComptonEnergy(DBLE(EA), DBLE((PI/2)-A_ST_AZIM_OUT))
             IF (EC.GE.EI .AND. EC.LT.(EI+ESTEP)) THEN
-                !TMP = AN_SCAT_COMP(N)
+                TMP = AN_SCAT_COMP(N)
                 ITMP = ITMP + TMP
+                TMP = 0_QP
+                LABEL = TRIM(LABEL)//'C'
             ENDIF
             DO CNT2 = 1, CP_ST%NELEMENTS
                 EC = LineEnergy(CP_ST%ELEMENTS(CNT2), LINE(N))
@@ -138,10 +147,14 @@ PROGRAM STSPEC
                     !I_CHAR = SECT_CHAR(N, CP_ST%ELEMENTS(CNT2))
                     I_CHAR = I_ST_CHAR(N, CNT2)
                     ITMP = ITMP + I_CHAR
+                    I_CHAR = 0_QP
+                    WRITE (NLABEL,'(I3)') N
+                    NLABEL = TRIM(NLABEL)
+                    LABEL = TRIM(LABEL)//TRIM(NLABEL)
                 ENDIF
             END DO
         END DO
-        WRITE (104,201) EI, ITMP
+        WRITE (104,201) EI, ITMP, LABEL
         IF (ISNAN(ITMP)) THEN
             WRITE (6,*) 'ERROR:', EI, EC, ITMP
         ENDIF
@@ -149,14 +162,14 @@ PROGRAM STSPEC
     WRITE (6,*) 'WRITING OUTPUT TO FILE'
     REWIND(104)
     DO
-        READ (104,201,END=999) EI, I
-        WRITE (121,201) EI, I
+        READ (104,201,END=999) EI, I, LABEL
+        WRITE (121,201) EI, I, LABEL
     END DO
     REWIND(104)
 
 CALL CONVOLUTE_SPEC()
 200 FORMAT(ES32.20E3)
-201 FORMAT(ES32.20E3, 2X, ES32.20E4)
+201 FORMAT(ES32.20E3, 2X, ES32.20E4, 2X, A16)
 999 CLOSE(100)
     CLOSE(104)
     CLOSE(111)

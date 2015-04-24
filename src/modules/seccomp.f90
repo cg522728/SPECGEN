@@ -26,10 +26,10 @@ MODULE SECCOMP
         REAL(DP)    :: E2 = 0_DP
         INTEGER     :: CNT
         REAL(QP)    :: PI = 0_QP
-        REAL(QP)    :: MAC1 = 0_QP
+        REAL(QP)    :: MAC1 = 1_QP
         REAL(QP), DIMENSION(:), ALLOCATABLE :: TMP
         REAL(QP), DIMENSION(:), ALLOCATABLE :: IA
-        REAL(QP), DIMENSION(:), ALLOCATABLE :: MAC2
+        REAL(QP), DIMENSION(:), ALLOCATABLE :: CHI
         REAL(QP), DIMENSION(:), ALLOCATABLE :: CONST
         REAL(DP), DIMENSION(:), ALLOCATABLE :: EA
 
@@ -37,14 +37,14 @@ MODULE SECCOMP
         ALLOCATE(IA(SIZE(LINE)))
         ALLOCATE(EA(SIZE(LINE)))
         ALLOCATE(CONST(SIZE(LINE)))
-        ALLOCATE(MAC2(SIZE(LINE)))
+        ALLOCATE(CHI(SIZE(LINE)))
 
         PI = 2.D0*DASIN(1.D0)
         TMP = 0_QP
-        IA = 0_QP
-        EA = 0_DP
-        CONST = 0_QP
-        MAC2 = 0_QP
+        IA = 1_QP
+        EA = 1_DP
+        CONST = 1_QP
+        CHI = 1_QP
 
         E_CHAR_ST = LineEnergy(ZELEMENT, LINE(N))
         E_EDGE_ST = EdgeEnergy(ZELEMENT, SHELL(N))
@@ -53,7 +53,7 @@ MODULE SECCOMP
             RETURN
         ENDIF
         MAC1 = MAC_COMP(CP_ST, E_CHAR_ST)
-        DO  CNT=1,SIZE(LINE)
+        DO  CNT=1, SIZE(LINE)
             EA(CNT) = LineEnergy(Z_ANODE, LINE(CNT))
             IF (EA(CNT) .EQ. 0) CYCLE
             IF (EA(CNT).LT.EMIN .OR. EA(CNT).LT.E_EDGE_ST) THEN
@@ -62,21 +62,20 @@ MODULE SECCOMP
                 IA(CNT) = ANODE_CHAR(CNT, Z_ANODE)
             ENDIF
             CONST(CNT) = CS_FLUOR_CP_CHG(CP_ST, N, EA(CNT))
-            MAC2(CNT) = MAC_COMP(CP_ST, EA(CNT))
+            CHI(CNT) = CALC_CHI(CP_ST, EA(CNT), E_CHAR_ST, A_ST_AZIM_IN, A_ST_AZIM_OUT)
         END DO
 
         DO  CNT=1,SIZE(LINE)
             IF (EA(CNT).EQ.0 .OR. EA(CNT).LT. E_CHAR_ST .OR. EA(CNT).LT. E_EDGE_ST) CYCLE
             TMP(CNT) = IA(CNT)*CONST(CNT)&
-                /((MAC2(CNT)/SIN(A_ST_AZIM_IN))&
-                +(MAC1/SIN(A_ST_AZIM_OUT)))
+                /CHI(CNT)
         END DO
         ITMP1 = SUM(TMP)*(SA_ST_IN/(4*PI*SIN(A_ST_AZIM_IN)))
 
         DEALLOCATE(EA)
         DEALLOCATE(IA)
         DEALLOCATE(TMP)
-        DEALLOCATE(MAC2)
+        DEALLOCATE(CHI)
         DEALLOCATE(CONST)
 
         E1 = E_EDGE_ST
@@ -101,8 +100,7 @@ MODULE SECCOMP
             E_CHAR = LineEnergy(Z, LINE(N))
             N_CHAR = ANODE_CONT(EI)&
                 *CS_FLUOR_CP_CHG(CP_ST, N, EI)&
-                /((MAC_COMP(CP_ST, EI)/SIN(A_ST_AZIM_IN))&
-                +(MAC_COMP(CP_ST, E_CHAR)/SIN(A_ST_AZIM_OUT)))
+                /CALC_CHI(CP_ST, EI, E_CHAR, A_ST_AZIM_IN, A_ST_AZIM_OUT)
             DERIV_SECT_CHAR = N_CHAR
             RETURN
     END FUNCTION DERIV_SECT_CHAR
@@ -116,9 +114,9 @@ MODULE SECCOMP
         REAL(DP)    :: E1 = 0_DP
         REAL(DP)    :: E2 = 0_DP
 
-        E1 = EI
-        E2 = EI+ESTEP
-        TMP = INTEGRATE(DERIV_SECT_CONT, E1, E2, INT(5))
+        E1 = EI - (ESTEP/2)
+        E2 = EI + (ESTEP/2)
+        TMP = INTEGRATE(DERIV_SECT_CONT, E1, E2, INT(25))
         N_CONT = TMP*(SA_ST_IN/SIN(A_ST_AZIM_IN))
         SECT_CONT = N_CONT
         RETURN
@@ -155,23 +153,23 @@ MODULE SECCOMP
         ENDIF
 
         DO CNT = 1, CP_ST%NELEMENTS
-            DCSR = DCSR + DCSP_Rayl(CP_ST%ELEMENTS(CNT), EI, DBLE(A_ST_POL), DBLE(A_ST_AZIM_OUT))&
+            DCSR = DCSR + DCS_Rayl(CP_ST%ELEMENTS(CNT), EI, DBLE(A_ST_POL))&!, DBLE(A_ST_AZIM_OUT))&
                     *CP_ST%massFractions(CNT)
         END DO
 
         PI = 2.D0*DASIN(1.D0)
         IRAY = ANODE_CONT(EI)*DCSR!DCSP_Rayl(Z_ANODE, EI, DBLE(A_ST_POL), DBLE(A_ST_AZIM_OUT))
-        CRAY = ((MAC_COMP(CP_ST, EI))/SIN(A_ST_AZIM_IN))&
-            +(MAC_COMP(CP_ST, EI)/SIN(A_ST_AZIM_OUT))
+        CRAY = CALC_CHI(CP_ST, EI, EI, A_ST_AZIM_IN, A_ST_AZIM_OUT)
         IRAY = (IRAY/CRAY)
         EINCOH = ComptonEnergy(EI, DBLE(A_ST_AZIM_OUT))
+
         DO CNT = 1, CP_ST%NELEMENTS
-            DCSC = DCSC + DCSP_CompT(CP_ST%ELEMENTS(CNT), EINCOH, DBLE(A_ST_POL), DBLE(A_ST_AZIM_OUT))&
+            DCSC = DCSC + DCS_Compt(CP_ST%ELEMENTS(CNT), EINCOH, DBLE(A_ST_POL))&!, DBLE(A_ST_AZIM_OUT))&
                     *CP_ST%massFractions(CNT)
         END DO
+
         ICOMPT = ANODE_CONT(EI)*DCSC!DCSP_Compt(Z_ANODE, EINCOH, DBLE(A_ST_POL), DBLE(A_ST_AZIM_OUT))
-        CCOMPT= ((MAC_COMP(CP_ST, EINCOH))/SIN(A_ST_AZIM_IN))&
-            +(MAC_COMP(CP_ST, EI)/SIN(A_ST_AZIM_OUT))
+        CCOMPT= CALC_CHI(CP_ST, EINCOH, EI,A_ST_AZIM_IN, A_ST_AZIM_OUT)
         ICOMPT = (ICOMPT/CCOMPT)
         DERIV_SECT_CONT = (IRAY + ICOMPT)
         RETURN
@@ -199,13 +197,12 @@ MODULE SECCOMP
         I_AN = ANODE_CHAR(N, Z_ANODE)
 
         DO CNT = 1, CP_ST%NELEMENTS
-            DCS = DCS + DCSP_Rayl(CP_ST%ELEMENTS(CNT), EA, DBLE(A_ST_POL), DBLE(A_ST_AZIM_OUT))&
+            DCS = DCS + DCS_Rayl(CP_ST%ELEMENTS(CNT), EA, DBLE(A_ST_POL))&!, DBLE(A_ST_AZIM_OUT))&
                     *CP_ST%massFractions(CNT)
         END DO
 
         I_RAYL = I_AN*DCS!DCSP_Rayl(Z_ANODE, EA, DBLE(A_ST_POL), DBLE(A_ST_AZIM_OUT))
-        CON = ((MAC_COMP(CP_ST, EA))/SIN(A_ST_AZIM_IN))&
-            +(MAC_COMP(CP_ST, EA)/SIN(A_ST_AZIM_OUT))
+        CON = CALC_CHI(CP_ST, EA, EA, A_ST_AZIM_IN, A_ST_AZIM_OUT)
         I_RAYL = (I_RAYL/CON)*(SA_ST_IN/SIN(A_ST_AZIM_IN))
         AN_SCAT_RAYL = I_RAYL
         RETURN
@@ -237,7 +234,7 @@ MODULE SECCOMP
         I_AN = ANODE_CHAR(N, Z_ANODE)
 
         DO CNT = 1, CP_ST%NELEMENTS
-            DCS = DCS + DCSP_Compt(CP_ST%ELEMENTS(CNT), EA, DBLE(A_ST_POL), DBLE(A_ST_AZIM_OUT))&
+            DCS = DCS + DCS_Compt(CP_ST%ELEMENTS(CNT), EA, DBLE(A_ST_POL))&!, DBLE(A_ST_AZIM_OUT))&
                     *CP_ST%massFractions(CNT)
         END DO
 

@@ -14,13 +14,13 @@ PROGRAM TSPEC
     USE     :: CONSTANTS
 
     IMPLICIT NONE
-    INTEGER             :: CNT
-    INTEGER             :: N
-    CHARACTER(LEN=16)   :: ARG0
-    REAL(DP)            :: EI = 0_DP
-    REAL(QP)            :: ITMP = 0_QP
-    REAL(DP)            :: EA = 0_DP
-    REAL(QP)            :: PI = 0_QP
+    INTEGER:: CNT
+    INTEGER:: N
+    CHARACTER(LEN=16):: ARG0
+    REAL(DP):: EI = 0_DP
+    REAL(QP):: ITMP = 0_QP
+    REAL(DP):: EA = 0_DP
+    REAL(QP):: PI = 0_QP
 
 
     PI = 2.D0*DASIN(1.D0)
@@ -94,6 +94,7 @@ PROGRAM TSPEC
                 ITMP = ITMP + ANODE_CHAR(N, Z_ANODE)
             ENDIF
         END DO
+        ITMP = ITMP*TUBE_ATTEN(EI)
         WRITE (103,201) EI, ITMP
     END DO
 

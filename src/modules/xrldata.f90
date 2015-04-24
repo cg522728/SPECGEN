@@ -186,4 +186,26 @@ CONTAINS
         TRANSPROB = RIJ
         RETURN
     END FUNCTION TRANSPROB
+    FUNCTION CALC_CHI(CP, E_EXC, E_CHAR, A_IN, A_OUT)
+        REAL(QP)    :: CALC_CHI
+        REAL(DP), INTENT(IN)    :: E_EXC
+        REAL(DP), INTENT(IN)    :: E_CHAR
+        REAL(QP), INTENT(IN)    :: A_IN
+        REAL(QP), INTENT(IN)    :: A_OUT
+        TYPE(CompoundData), POINTER, INTENT(IN) :: CP
+
+        REAL(QP)    :: MAC_EXC = 0_QP
+        REAL(QP)    :: MAC_CHAR = 0_QP
+        REAL(QP)    :: MAC_TMP = 0_QP
+        INTEGER     :: CNT
+
+        DO CNT = 1, CP%NELEMENTS
+            MAC_TMP = MAC_COMP(CP, E_EXC)
+            MAC_EXC = MAC_EXC + MAC_TMP*CP%MASSFRACTIONS(CNT)
+            MAC_TMP = MAC_COMP(CP, E_CHAR)
+            MAC_CHAR = MAC_CHAR + MAC_TMP*CP%MASSFRACTIONS(CNT)
+        END DO
+        CALC_CHI = (MAC_EXC/SIN(A_IN))+(MAC_CHAR/SIN(A_OUT))
+        RETURN
+    END FUNCTION CALC_CHI
 END MODULE XRLDATA
