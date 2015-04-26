@@ -1,216 +1,337 @@
 MODULE ANODE
     USE :: xraylib
     USE :: TYPES
-    USE :: CFGDATA
     USE :: XRLDATA
-    USE :: CONSTANTS
+    USE :: CFGDATA
     USE :: MATHCHG
     IMPLICIT NONE
     PRIVATE
-    PUBLIC ANODE_CONT, ANODE_CHAR, TUBE_ATTEN
+    PUBLIC ANODE_CONT, ANODE_CHAR, TUBE_ATTEN, FILTER_ATTEN
 CONTAINS
-    FUNCTION ANODE_CONT(EI)
-        REAL(QP)    :: ANODE_CONT
-        REAL(DP), INTENT(IN)    :: EI
-
-        REAL(DP)    :: E1 = 0_DP
-        REAL(DP)    :: E2 = 0_DP
-
-        E1 = EI - (ESTEP/2)
-        E2 = EI + (ESTEP/2)
-        ANODE_CONT = INTEGRATE(DERIV_ANODE_CONT, E1, E2, INT(25), Z_ANODE)
-        RETURN
-    END FUNCTION ANODE_CONT
-    FUNCTION ANODE_CHAR(N, Z_INT)
-        IMPLICIT NONE
-        REAL(QP) :: ANODE_CHAR
+    FUNCTION ANODE_CHAR(Z, N, OMEGA, I) RESULT(N_CHAR)
+        !#################################################################################
+        !#THIS FUNCTION CALCULATES THE NUMBER OF COUNTS FOR A CHARACTERISTIC LINE        #
+        !#AS DEFINED IN:                                                                 #
+        !#  EBEL, Horst. X‐ray tube spectra. X‐Ray Spectrometry, 1999, 28.4: 255-266.    #
+        !#################################################################################
+        !#INPUTS:                                                                        #
+        !#      -Z      (INT)       ATOMIC NUMBER                   [-]                  #
+        !#      -N      (INT)       LINE SELECTOR                   [-]                  #
+        !#      -OMEGA  (WP)        SOLID ANGLE OF EXIT             [sr]                 #
+        !#      -I      (WP)        TUBE CURRENT                    [mA]                 #
+        !#################################################################################
+        INTEGER, INTENT(IN) :: Z
         INTEGER, INTENT(IN) :: N
-        INTEGER, INTENT(IN):: Z_INT
-        
-        REAL(DP) :: E_CHAR = 0_DP
-        REAL(DP)    :: E_EDGE = 0_DP
-        REAL(QP) :: R_BACKSCATTER = 0_QP
-        REAL(DP) :: UZ = 0_DP
-        REAL(DP)    :: ETUBE = 0_DP
-        REAL(QP), DIMENSION(5)   :: RCON
-        REAL(DP)    :: Z = 0_DP
+        REAL(WP), INTENT(IN) :: OMEGA
+        REAL(WP), INTENT(IN) :: I
+        REAL(WP) :: N_CHAR
 
-        DATA RCON/1, 0.0081517, 3.613E-5, 0.009583, 0.001141/
+        REAL(DP) :: E_LINE
+        REAL(DP) :: E_EDGE
+        REAL(WP) :: CONST
+        REAL(WP) :: SPF
+        REAL(WP) :: R
+        REAL(WP) :: F
 
-        Z = DBLE(Z_INT)
-        E_CHAR = LineEnergy(Z_INT, LINE(N))
-        E_EDGE = EdgeEnergy(Z_INT, SHELL(N))
-        IF (E_CHAR.EQ. 0) THEN
-            ANODE_CHAR = 0
-            RETURN
-        ENDIF
-        ETUBE = DBLE(VTUBE)
-        UZ = ETUBE/E_EDGE
-        R_BACKSCATTER = RCON(1)&
-                            - RCON(2)*Z&
-                            + RCON(3)*(Z**2)&
-                            +RCON(4)*Z*EXP(-UZ)&
-                            +RCON(5)*ETUBE
-        ANODE_CHAR = SA_ANODE_OUT&
-                    *ITUBE&
-                    *EBEL_CONST(N, Z_INT)&
-                    *R_BACKSCATTER&
-                    *STOPPINGFACTOR(N, Z_INT)&
-                    *CALC_F(E_EDGE, Z_INT, N)&
-                    *TRANSPROB(Z_INT, LINE(N))&
-                    *FLUORYIELD_CHG(Z_INT, SHELL(N))!&
-                    !*FLUORYIELD(Z_INT, SHELL(N))
+        E_LINE = LINE_ENERGY(Z, N)
+        E_EDGE = EDGE_ENERGY(Z, N)
+        CONST = EBEL_CONST(N, Z)
+        SPF = STOPPING_POWER_FACTOR(E_LINE, Z, N)
+        R = BACKSCAT_FACTOR(E_LINE ,Z)
+        F = ABSORB_TERM(E_LINE, Z)
+
+        N_CHAR = OMEGA&
+                    *I&
+                    *CONST&
+                    *SPF&
+                    *R&
+                    *FLUOR_YIELD(Z, N)&
+                    *TRANSPROB(Z, N)&
+                    *F
         RETURN
     END FUNCTION ANODE_CHAR
-    FUNCTION DERIV_ANODE_CONT(EI, Z)
-        IMPLICIT NONE
-        REAL(QP) :: DERIV_ANODE_CONT
-        REAL(DP), INTENT(IN)    :: EI
-        INTEGER , INTENT(IN)    :: Z
-        
-        REAL(QP) :: CONST = 0_QP
-        REAL(QP)    :: EBEL = 1.37E9_QP
-        REAL(QP) :: X = 0_QP
-        REAL(QP) :: N_CONT = 0_QP
-        REAL(DP)    :: UZ = 0_DP
-        REAL(DP)    :: ETUBE
 
-        ETUBE = DBLE(VTUBE)
-        UZ = ETUBE/EI
-        IF (EI.GE.ETUBE) THEN
-            DERIV_ANODE_CONT = 0_QP
-            RETURN
-        ENDIF
-        CONST = SA_ANODE_OUT*ITUBE*EBEL*Z
-        X = 1.0314-0.0032*Z+0.0047*VTUBE
-        N_CONT = CONST*((UZ-1)**X)*CALC_F(EI, Z)
-        DERIV_ANODE_CONT = N_CONT
+    FUNCTION ANODE_CONT(Z, E, OMEGA, I) RESULT(N_CONT)
+        !#################################################################################
+        !#THIS FUNCTION CALCULATES THE NUMBER OF COUNTS AT ENERGY E IN THE CONTINUUM     #
+        !#AS DEFINED IN:                                                                 #
+        !#  EBEL, Horst. X‐ray tube spectra. X‐Ray Spectrometry, 1999, 28.4: 255-266.    #
+        !#################################################################################
+        !#INPUTS:                                                                        #
+        !#      -Z      (INT)       ATOMIC NUMBER                   [-]                  #
+        !#      -E      (DBLE)      ENERGY                          [keV]                #
+        !#      -OMEGA  (WP)        SOLID ANGLE OF EXIT             [sr]                 #
+        !#      -I      (WP)        TUBE CURRENT                    [mA]                 #
+        !#################################################################################
+        INTEGER, INTENT(IN) :: Z
+        REAL(DP), INTENT(IN) :: E
+        REAL(WP), INTENT(IN) :: OMEGA
+        REAL(WP), INTENT(IN) :: I
+        REAL(WP) :: N_CONT
+
+        REAL(WP) :: INTEGRAL
+        REAL(DP) :: E_INIT
+        REAL(DP) :: E_FINAL
+
+        E_INIT = E
+        E_FINAL = E + ESTEP
+        INTEGRAL = INTEGRATE(DERIV_CONT, E_INIT, E_FINAL, INT(10), Z)
+        N_CONT = OMEGA&
+                    *I&
+                    *INTEGRAL
         RETURN
-    END FUNCTION DERIV_ANODE_CONT
-    FUNCTION TUBE_ATTEN(EI)
-        IMPLICIT NONE
-        REAL(QP)    :: TUBE_ATTEN
-        REAL(DP), INTENT(IN)    :: EI
+    END FUNCTION ANODE_CONT
 
-        REAL(QP)    :: ATTEN_WINDOW = 0_QP
-        REAL(QP)    :: ATTEN_FILTER = 0_QP
+    FUNCTION DERIV_CONT(E, Z) RESULT(N_CONT)
+        !#################################################################################
+        !#THIS FUNCTION CALCULATES THE DERIVATIVE OF THE NUMBER OF COUNTS AT ENERGY      #
+        !#E IN THE CONTINUUM AS DEFINED IN:                                              #
+        !#  EBEL, Horst. X‐ray tube spectra. X‐Ray Spectrometry, 1999, 28.4: 255-266.    #
+        !#################################################################################
+        !#INPUTS:                                                                        #
+        !#      -E      (DBLE)      ENERGY                          [keV]                #
+        !#      -Z      (INT)       ATOMIC NUMBER                   [-]                  #
+        !#################################################################################
+        INTEGER, INTENT(IN) :: Z
+        REAL(DP), INTENT(IN) :: E
+        REAL(WP) :: N_CONT
 
-        ATTEN_WINDOW = EXP(-MAC(Z_WINDOW, EI)*D_WINDOW*ElementDensity(Z_WINDOW)*1E-4)
-        IF (D_FILTER.GT. 0) THEN
-            ATTEN_FILTER = EXP(-MAC(Z_FILTER, EI)*D_FILTER*ElementDensity(Z_FILTER)*1E-4)
-        ELSE
-            ATTEN_FILTER = 1_QP
-        ENDIF
-        TUBE_ATTEN = ATTEN_WINDOW*ATTEN_FILTER
-    END FUNCTION TUBE_ATTEN
-    FUNCTION CALC_F(EI, Z, N)
-        IMPLICIT NONE
-        REAL(QP)    :: CALC_F
-        REAL(DP), INTENT(IN)    :: EI
-        INTEGER, INTENT(IN)     :: Z
-        INTEGER, INTENT(IN), OPTIONAL   :: N
+        INTEGER :: N = 0
+        REAL(WP) :: CS_SR
+        REAL(WP) :: F_ABS
 
-        REAL(QP)    :: TAU = 0_QP
-        REAL(QP)    :: TMP = 0_QP
-
-        IF (PRESENT(N)) TAU = CS_Photo(Z, EI)
-        IF (.NOT.PRESENT(N)) TAU = CS_TOTAL(Z, EI)
-        TMP = TAU*2*DDF(EI, Z)*(SIN(A_INCID)/SIN(A_TAKE_OFF))
-        CALC_F = (1-EXP(-TMP))/TMP
+        F_ABS = ABSORB_TERM(E, Z)
+        CS_SR = CS_SMITH_REED(E, Z, N)
+        N_CONT = CS_SR&
+                    *F_ABS
         RETURN
-    END FUNCTION CALC_F
-        FUNCTION DDF(EI, Z_INT)
-        REAL(QP)    ::DDF
-        REAL(DP), INTENT(IN)    :: EI
-        INTEGER, INTENT(IN)     :: Z_INT
+    END FUNCTION DERIV_CONT
 
-        REAL(QP)    :: ETA = 0_QP
-        REAL(QP)    :: TMP1 = 0_QP
-        REAL(QP)    :: TMP2 = 0_QP
-        REAL(QP)    :: TMP3 = 0_QP
-        REAL(QP)    :: M = 0_QP
-        REAL(QP)    :: UZ = 0_QP
-        REAL(QP)    :: J = 0_QP
-        REAL(QP)    :: EC = 0_QP
-        REAL(QP)    :: Z = 0_QP
-        REAL(QP)    :: A = 0_QP
-        REAL(DP)    :: ETUBE = 0_DP
-        REAL(QP)    :: LOGZ = 0_QP
-        REAL(QP), DIMENSION(2)    :: MCON
-        REAL(QP), DIMENSION(4)    :: ECCON
-        REAL(QP), DIMENSION(8)    :: DCON
+   FUNCTION BACKSCAT_COEF_GRAD(Z) RESULT(G)
+        !#################################################################################
+        !#THIS FUNCTION CALCULATES THE GRADIENT OF THE BACKSCATTER COEFFICIENT           #
+        !#AS DEFINED IN:                                                                 #
+        !#  LOVE, G.; SCOTT, V. D. Evaluation of a new correction procedure for          #
+        !#  quantitative electron probe microanalysis. Journal of Physics D: Applied     #
+        !#  Physics, 1978, 11.10: 1369.                                                  #
+        !#################################################################################
+        !#INPUTS:                                                                        #
+        !#      -Z     (INT)    ATOMIC NUMBER                       [-]                  #
+        !#################################################################################
+        INTEGER, INTENT(IN) :: Z
+        REAL(WP) :: G
 
-        DATA MCON/0.1382, 0.9211/
-        DATA ECCON/0.1904, 0.2236, 0.1292, 0.0149/
-        DATA DCON/0.787E-5, 0.735E-6,&
-                 0.49269, 1.0987, 0.78557,&
-                 0.70256, 1.09865, 1.0046/
+        REAL(WP), DIMENSION(3) :: CON
 
-        Z = DBLE(Z_INT)
-        A = AtomicWeight(Z_INT)
-        ETUBE = DBLE(VTUBE)
-        UZ = ETUBE/EI
-        M = MCON(1) - (MCON(2)*(Z**(-0.5)))
-        J = 0.0135_QP*Z
-        LOGZ = LOG(Z)
-        EC = ECCON(1)&
-                - ECCON(2)*LOGZ&
-                +ECCON(3)*(LOGZ**2)&
-                -ECCON(4)*(LOGZ**3)
-        ETA = (ETUBE**M)*EC
-        TMP1 = (A/Z)*(DCON(1)*SQRT(J)*(ETUBE**(1.5_QP))+DCON(2)*(ETUBE**(2_DP)))
-        TMP2 = DCON(3)-DCON(4)*ETA+DCON(5)*ETA**2_DP
-        TMP3 = DCON(6)-DCON(7)*ETA+DCON(8)*(ETA**2_DP)+LOG(UZ)
-        DDF = TMP1*(TMP2/TMP3)*LOG(UZ)
+        DATA CON/1112.8E-4, 30.289E-4, 0.15498E-4/
+
+        G = -CON(1)&
+                +CON(2)*Z&
+                -CON(3)*(Z**2)
         RETURN
-    END FUNCTION DDF
-    FUNCTION STOPPINGFACTOR(N, Z)
-        IMPLICIT NONE
-        REAL(QP)    :: STOPPINGFACTOR
-        INTEGER, INTENT(IN)     :: N
-        INTEGER, INTENT(IN)     :: Z
+    END FUNCTION BACKSCAT_COEF_GRAD
 
-        REAL(QP)    :: UZ = 0_QP
-        REAL(QP)    :: ZCON = 0_QP
-        REAL(QP)    :: BCON = 0_QP
-        REAL(QP)    :: J = 0_QP
-        REAL(QP)    :: S = 0_QP
-        REAL(QP)    :: TMP = 0_QP
-        REAL(QP)    :: TMP2 = 0_QP
-        REAL(QP)    :: TMP3 = 0_QP
-        REAL(DP)    :: ETUBE
-        REAL(DP)    :: E_EDGE
+    FUNCTION BACKSCAT_COEF_INTERCEPT(Z) RESULT(I)
+        !#################################################################################
+        !#THIS FUNCTION CALCULATES THE INTERCEPT OF THE BACKSCATTER COEFFICIENT          #
+        !#AS DEFINED IN:                                                                 #
+        !#  LOVE, G.; SCOTT, V. D. Evaluation of a new correction procedure for          #
+        !#  quantitative electron probe microanalysis. Journal of Physics D: Applied     #
+        !#  Physics, 1978, 11.10: 1369.                                                  #
+        !#################################################################################
+        !#INPUTS:                                                                        #
+        !#      -Z     (INT)    ATOMIC NUMBER                       [-]                  #
+        !#################################################################################
+        INTEGER, INTENT(IN) :: Z
+        REAL(WP) :: I
 
-        IF (SHELL(N).EQ. K_SHELL) THEN
-            ZCON = 2_QP
-            BCON = 0.35_QP
-        ENDIF
-        IF (SHELL(N).EQ. L3_SHELL&
-                .OR. SHELL(N).EQ. L2_SHELL&
-                .OR. SHELL(N).EQ. L1_SHELL) THEN
-            ZCON = 8_QP
-            BCON = 0.25_QP
-        ENDIF
-                IF (SHELL(N).EQ. M5_SHELL&
-                .OR. SHELL(N).EQ. M4_SHELL&
-                .OR. SHELL(N).EQ. M3_SHELL&
-                .OR. SHELL(N).EQ. M2_SHELL&
-                .OR. SHELL(N).EQ. M1_SHELL) THEN
-            ZCON = 1.2_QP
-            BCON = 0.7_QP
-        ENDIF
-        ETUBE = DBLE(VTUBE)
-        E_EDGE = EdgeEnergy(Z, SHELL(N))
-        UZ = ETUBE/E_EDGE
-        J = 0.0135_QP*DBLE(Z)
-        TMP = UZ*LOG(UZ)+1-UZ
-        TMP2 = SQRT(UZ)*LOG(UZ)+2*(1-SQRT(UZ))
-        TMP3 = 16.05_QP*SQRT(J/E_EDGE)*(TMP2/TMP)
-        S = ((ZCON*BCON)/DBLE(Z))*TMP*(1+TMP3)
-        STOPPINGFACTOR = S
+        REAL(WP), DIMENSION(4) :: CON
+
+        DATA CON/52.3791E-4, 150.48371E-4, 1.67373E-4, 0.00716E-4/
+
+        I = -CON(1)&
+                +CON(2)*Z&
+                -CON(3)*(Z**2)&
+                +CON(4)*(Z**3)
         RETURN
-    END FUNCTION STOPPINGFACTOR
+    END FUNCTION BACKSCAT_COEF_INTERCEPT
+
+    FUNCTION BACKSCAT_COEF(Z) RESULT(ETA)
+        !#################################################################################
+        !#THIS FUNCTION CALCULATES THE THE BACKSCATTER COEFFICIENT                       #
+        !#AS DEFINED IN:                                                                 #
+        !#  LOVE, G.; SCOTT, V. D. Evaluation of a new correction procedure for          #
+        !#  quantitative electron probe microanalysis. Journal of Physics D: Applied     #
+        !#  Physics, 1978, 11.10: 1369.                                                  #
+        !#################################################################################
+        !#INPUTS:                                                                        #
+        !#      -Z     (INT)    ATOMIC NUMBER                       [-]                  #
+        !#################################################################################
+        INTEGER, INTENT(IN) :: Z
+        REAL(WP) :: ETA
+
+        REAL(WP) :: ETA20
+        REAL(WP) :: GETA20
+        REAL(WP) :: ECALC = 20_WP
+
+        ETA20 = BACKSCAT_COEF_INTERCEPT(Z)
+        GETA20 = BACKSCAT_COEF_GRAD(Z)
+
+        ETA = ETA20*(1+GETA20*LOG(VTUBE/ECALC))
+        RETURN
+    END FUNCTION BACKSCAT_COEF
+
+    FUNCTION MAX_PATH_LENGTH(Z) RESULT(RSM)
+        !#################################################################################
+        !#THIS FUNCTION CALCULATES THE THE MAXIMUM PATH LENGTH OF AN ELECTRON IN         #
+        !#A TARGET AS DEFINED IN:                                                        #
+        !#  LOVE, G.; SCOTT, V. D. Evaluation of a new correction procedure for          #
+        !#  quantitative electron probe microanalysis. Journal of Physics D: Applied     #
+        !#  Physics, 1978, 11.10: 1369.                                                  #
+        !#################################################################################
+        !#INPUTS:                                                                        #
+        !#      -Z     (INT)    ATOMIC NUMBER                       [-]                  #
+        !#################################################################################
+        INTEGER, INTENT(IN) :: Z
+        REAL(WP) :: RSM
+
+        REAL(WP) :: IONPOT
+        REAL(WP) :: ZARATIO
+
+        REAL(WP), DIMENSION(2) :: CON
+
+        DATA CON/0.773E-5, 0.735E-6/
+
+        IONPOT = NIST_ION_POT(Z)
+        ZARATIO = NIST_ZA_RATIO(Z)
+
+        RSM = (CON(1)*SQRT(IONPOT*VTUBE)&
+                    *VTUBE&
+                +CON(2)*(VTUBE**2))&
+                /ZARATIO
+        RETURN
+    END FUNCTION MAX_PATH_LENGTH
+
+    FUNCTION MEAN_MASS_DEPTH(E, Z) RESULT(RS)
+        !#################################################################################
+        !#THIS FUNCTION CALCULATES THE MEAN MASS DEPTH OF X-RAY GENERATION               #
+        !#AS DEFINED IN:                                                                 #
+        !#  LOVE, G.; SCOTT, V. D. Evaluation of a new correction procedure for          #
+        !#  quantitative electron probe microanalysis. Journal of Physics D: Applied     #
+        !#  Physics, 1978, 11.10: 1369.                                                  #
+        !#################################################################################
+        !#INPUTS:                                                                        #
+        !#      -E     (DBLE)   ENERGY                              [keV]                #
+        !#      -Z     (INT)    ATOMIC NUMBER                       [-]                  #
+        !#################################################################################
+        REAL(DP), INTENT(IN) :: E
+        INTEGER, INTENT(IN) :: Z
+        REAL(WP) :: RS
+
+        REAL(WP) :: TMP1
+        REAL(WP) :: TMP2
+        REAL(DP) :: UZ
+        REAL(WP) :: ETA
+        REAL(WP) :: RSM
+
+        REAL(WP), DIMENSION(3) :: CON1
+        REAL(WP), DIMENSION(3) :: CON2
+
+        DATA CON1/0.49269, 1.09870, 0.78557/
+        DATA CON2/0.70256, 1.09865, 1.00460/
+
+        ETA = BACKSCAT_COEF(Z)
+        RSM = MAX_PATH_LENGTH(Z)
+        UZ = VTUBE/E
+        TMP1 = (CON1(1)&
+                -CON1(2)*ETA&
+                +CON1(3)*(ETA**2))&
+                *LOG(UZ)
+
+        TMP2 = (CON2(1)&
+                -CON2(2)*ETA&
+                +CON2(3)*(ETA**2))&
+                +LOG(UZ)
+
+        RS = RSM*(TMP1/TMP2)
+        RETURN
+    END FUNCTION MEAN_MASS_DEPTH
+
+    FUNCTION ABSORB_TERM(E, Z) RESULT(F)
+        !#################################################################################
+        !#THIS FUNCTION CALCULATES THE ABSORPTION CORRECTION TERM                        #
+        !#AS DEFINED IN:                                                                 #
+        !#  LOVE, G.; SCOTT, V. D. Evaluation of a new correction procedure for          #
+        !#  quantitative electron probe microanalysis. Journal of Physics D: Applied     #
+        !#  Physics, 1978, 11.10: 1369.                                                  #
+        !#################################################################################
+        !#INPUTS:                                                                        #
+        !#      -E     (DBLE)   ENERGY                              [keV]                #
+        !#      -Z     (INT)    ATOMIC NUMBER                       [-]                  #
+        !#################################################################################
+        REAL(DP), INTENT(IN) :: E
+        INTEGER, INTENT(IN) :: Z
+        REAL(WP) :: F
+
+        REAL(WP) :: CHI
+        REAL(WP) :: RS
+
+        CHI = MAC(Z, E)/SIN(A_TAKE_OFF)
+        RS = 2*MEAN_MASS_DEPTH(E, Z)
+
+        F = (1-EXP(-RS*CHI))/(RS*CHI)
+        RETURN
+    END FUNCTION ABSORB_TERM
+
+    FUNCTION CS_SMITH_REED(E, Z, N) RESULT(CS)
+        !#################################################################################
+        !#THIS FUNCTION CALCULATES THE SMITH AND REED CROSS SECTION                      #
+        !#AS DEFINED IN:                                                                 #
+        !#  EBEL, Horst. X‐ray tube spectra. X‐Ray Spectrometry, 1999, 28.4: 255-266.    #                                                 #
+        !#################################################################################
+        !#INPUTS:                                                                        #
+        !#      -E     (DBLE)   ENERGY                              [keV]                #
+        !#      -Z     (INT)    ATOMIC NUMBER                       [-]                  #
+        !#      -N     (INT)    LINE SELECTOR                       [-]                  #
+        !#THE LINE SELECTOR IS SET TO ZERO TU USE THE CROSS SECTION FOR THE              #
+        !#CONTINUUM.                                                                     #
+        !#################################################################################
+        INTEGER, INTENT(IN) :: Z
+        REAL(DP), INTENT(IN) :: E
+        INTEGER, INTENT(IN) :: N
+        REAL(WP) :: CS
+
+        REAL(WP), DIMENSION(3) :: CON
+
+        REAL(WP) :: X
+        REAL(WP) :: CONST
+
+        DATA CON/1.109, 0.00435, 0.00175/
+
+        CONST = EBEL_CONST(N, Z)
+        X = CON(1)&
+                -CON(2)*Z&
+                +CON(3)*VTUBE
+        CS = CONST*Z*((VTUBE/E)-1)**X
+        RETURN
+    END FUNCTION CS_SMITH_REED
+
     FUNCTION EBEL_CONST(N, Z)
+        !#################################################################################
+        !#THIS FUNCTION CALCULATES THE CONSTANT USED INT SMITH AND REED CROSS SECTION    #
+        !#AS DEFINED IN:                                                                 #
+        !#  EBEL, Horst. X‐ray tube spectra. X‐Ray Spectrometry, 1999, 28.4: 255-266.    #
+        !#                                                                               #
+        !#THE CONSTANTS THEMSELVES ARE EXPERIMENTALLY DETERMINED IN:                     #
+        !#  EBEL, Horst. Lι, Lα1, 2, Lη, Lβ1, 2, 3, 4, 5, 6 and Lγ1, 2, 3 spectra        #
+        !3  of x‐ray tubes. X‐Ray Spectrometry, 2003, 32.1: 46-51.                       #
+        !#################################################################################
+        !#INPUTS:                                                                        #
+        !#      -N     (INT)    LINE SELECTOR                       [-]                  #
+        !#      -Z     (INT)    ATOMIC NUMBER                       [-]                  #
+        !#THE LINE SELECTOR IS SET TO ZERO TU USE THE CROSS SECTION FOR THE              #
+        !#CONTINUUM.                                                                     #
+        !#################################################################################
         REAL(QP)    :: EBEL_CONST
         INTEGER, INTENT(IN) :: N
         INTEGER, INTENT(IN) :: Z
@@ -221,7 +342,7 @@ CONTAINS
         REAL(DP)    :: E_TUBE = 0_DP
         REAL(QP)    :: TMP1 = 0_QP
         REAL(QP)    :: TMP2 = 0_QP
-        REAL(QP), DIMENSION(4)    :: KSHELL
+
         REAL(QP)    :: L1SHELL
         REAL(QP)    :: L2SHELL
         REAL(QP)    :: L3SHELL
@@ -230,6 +351,9 @@ CONTAINS
         REAL(QP)    :: M3SHELL
         REAL(QP)    :: M4SHELL
         REAL(QP)    :: M5SHELL
+        REAL(WP) :: CONT
+
+        REAL(QP), DIMENSION(4)    :: KSHELL
         REAL(QP), DIMENSION(3)    :: FCON
 
         DATA KSHELL/4.697, 0.134, 0.00268, 1E13/
@@ -241,11 +365,18 @@ CONTAINS
         DATA M3SHELL/2.32E13/
         DATA M4SHELL/15.8E13/
         DATA M5SHELL/20.5E13/
+        DATA CONT/1.35E9/
         DATA FCON/0.4814, 0.03781, 2.413E-4/
 
         E_TUBE = DBLE(VTUBE)
         E_EDGE = EdgeEnergy(Z, SHELL(N))
         UZ = E_TUBE/E_EDGE
+
+        IF (N.EQ.0) THEN
+            EBEL_CONST = CONT
+            RETURN
+        ENDIF
+
         IF (Z.LT.80) THEN
             FCOR = -FCON(1)&
                     + FCON(2)*DBLE(Z)&
@@ -289,4 +420,263 @@ CONTAINS
             RETURN
         ENDIF
     END FUNCTION EBEL_CONST
+
+    FUNCTION BACKSCAT_FACTOR_INTERCEPT(UZ) RESULT(I)
+        !#################################################################################
+        !#THIS FUNCTION CALCULATES THE INTERCEPT OF THE BACKSCATTERING FACTOR            #
+        !#AS DESCRIBED IN:                                                               #
+        !#  LOVE, G.; SCOTT, V. D. Evaluation of a new correction procedure for          #
+        !#  quantitative electron probe microanalysis. Journal of Physics D:             #
+        !#  Applied Physics, 1978, 11.10: 1369.                                          #
+        !#################################################################################
+        !#INPUTS:                                                                        #
+        !#      -UZ     (DBLE)      OVERVOLTAGE RATIO               [-]                  #
+        !#################################################################################
+        REAL(DP), INTENT(IN) :: UZ
+        REAL(WP) :: I
+
+        REAL(WP), DIMENSION(4) :: CON
+        REAL(WP) :: LN_UZ
+
+        DATA CON/0.33148, 0.05596, 0.06339, 0.00947/
+
+        LN_UZ = LOG(UZ)
+
+        I = CON(1)*LN_UZ&
+                +CON(2)*(LN_UZ**2)&
+                -CON(3)*(LN_UZ**3)&
+                +CON(4)*(LN_UZ**4)
+        RETURN
+    END FUNCTION BACKSCAT_FACTOR_INTERCEPT
+
+    FUNCTION BACKSCAT_FACTOR_GRAD(UZ) RESULT(G)
+        !#################################################################################
+        !#THIS FUNCTION CALCULATES THE GRADIENT OF THE BACKSCATTERING FACTOR             #
+        !#AS DESCRIBED IN:                                                               #
+        !#  LOVE, G.; SCOTT, V. D. Evaluation of a new correction procedure for          #
+        !#  quantitative electron probe microanalysis. Journal of Physics D:             #
+        !#  Applied Physics, 1978, 11.10: 1369.                                          #
+        !#################################################################################
+        !#INPUTS:                                                                        #
+        !#      -UZ     (DBLE)      OVERVOLTAGE RATIO               [-]                  #
+        !#################################################################################
+        REAL(DP), INTENT(IN) ::UZ
+        REAL(WP) :: G
+
+        REAL(WP), DIMENSION(4) :: CON
+        REAL(WP) :: LN_UZ
+
+        DATA CON/2.87898, 1.51307, 0.81312, 0.08241/
+
+        LN_UZ = LOG(UZ)
+
+        G = (1/UZ)&
+                *(CON(1)*LN_UZ&
+                    -CON(2)*(LN_UZ**2)&
+                    +CON(3)*(LN_UZ**3)&
+                    -CON(4)*(LN_UZ**4))
+        RETURN
+    END FUNCTION BACKSCAT_FACTOR_GRAD
+
+    FUNCTION BACKSCAT_FACTOR(E, Z) RESULT(R)
+        !#################################################################################
+        !#THIS FUNCTION CALCULATES THE BACKSCATTERING FACTOR AS DESCRIBED IN:            #
+        !#  LOVE, G.; SCOTT, V. D. Evaluation of a new correction procedure for          #
+        !#  quantitative electron probe microanalysis. Journal of Physics D:             #
+        !#  Applied Physics, 1978, 11.10: 1369.                                          #
+        !#################################################################################
+        !#INPUTS:                                                                        #
+        !#      -E      (DBLE)      ENERGY                          [keV]                #
+        !#      -Z      (INT)       ATOMIC NUMBER OF WINDOW         [-]                  #
+        !#################################################################################
+        REAL(DP), INTENT(IN) :: E
+        INTEGER, INTENT(IN) :: Z
+        REAL(WP) :: R
+
+        REAL(WP) :: I
+        REAL(WP) :: G
+        REAL(WP) :: ETA
+        REAL(DP) :: UZ
+
+        UZ = VTUBE/E
+        I = BACKSCAT_FACTOR_INTERCEPT(UZ)
+        G = BACKSCAT_FACTOR_GRAD(UZ)
+        ETA = BACKSCAT_COEF(Z)
+
+        R = 1 - ETA*((I+ETA*G)**1.67)
+        RETURN
+    END FUNCTION BACKSCAT_FACTOR
+
+    FUNCTION CS_ION(E, Z, N) RESULT(CS)
+        !#################################################################################
+        !#THIS FUNCTION CALCULATES THE IONIZATION CROSS SECTION AS DESCRIBED IN:         #
+        !#  GREEN, Martin; COSSLETT, V. E. The efficiency of production of               #
+        !#  characteristic X-radiation in thick targets of a pure element.               #
+        !#  Proceedings of the Physical Society, 1961, 78.6: 1206.                       #
+        !#################################################################################
+        !#INPUTS:                                                                        #
+        !#      -E      (DBLE)      ENERGY                          [keV]                #
+        !#      -Z      (INT)       ATOMIC NUMBER OF WINDOW         [-]                  #
+        !#      -N      (INT)       SHELL SELECTOR                  [-]                  #
+        !#################################################################################
+        REAL(DP), INTENT(IN) :: E
+        INTEGER, INTENT(IN) :: Z
+        INTEGER, INTENT(IN) :: N
+        REAL(WP) :: CS
+
+        REAL(DP) :: E_EDGE
+        REAL(DP) :: UZ
+        REAL(QP) :: PI
+        REAL(WP) :: CON0
+        REAL(WP) :: CON1
+        REAL(WP) :: CON2
+        REAL(WP) :: CON3
+        REAL(WP), DIMENSION(2) :: CON4
+
+        DATA CON4/1.65, 2.35/
+
+        PI = 2.D0*DASIN(1.D0)
+        E_EDGE = EDGE_ENERGY(Z, N)
+        UZ = E/E_EDGE
+        CON0 = 4
+        CON1 = 2*PI*EXP(CON0)
+        CON2 = 0.35
+        CON3 = E_EDGE*(CON4(1)+CON4(2)*EXP(1-UZ))
+        CS = (CON1/(E*E_EDGE))*CON2*LOG((4*E)/CON3)
+        RETURN
+    END FUNCTION CS_ION
+
+    FUNCTION STOPPING_FACTOR(E, Z) RESULT(F)
+        !#################################################################################
+        !#THIS FUNCTION CALCULATES THE STOPPING FACTOR AS DESCRIBED IN                   #
+        !#  LOVE, G.; COX, M. G.; SCOTT, V. D. A versatile atomic number correction for  #
+        !#  electron-probe microanalysis. Journal of Physics D: Applied Physics, 1978,   #
+        !#  11.1: 7.                                                                     #
+        !#################################################################################
+        !#INPUTS:                                                                        #
+        !#      -E      (DBLE)      ENERGY                          [keV]                #
+        !#      -Z      (INT)       ATOMIC NUMBER OF WINDOW         [-]                  #
+        !#################################################################################
+        REAL(DP), INTENT(IN) :: E
+        INTEGER, INTENT(IN) :: Z
+        REAL(WP) :: F
+
+        REAL(WP), DIMENSION(2) :: CON
+        REAL(WP) :: IONPOT
+        REAL(WP) :: ZA_RATIO
+        REAL(WP) :: V
+        REAL(WP) :: F_V
+
+        DATA CON/1.18E-5, 1.47E-6/
+        ZA_RATIO = NIST_ZA_RATIO(Z)
+        IONPOT = NIST_ION_POT(Z)
+        V = E/IONPOT
+
+        F_V = CON(1)*SQRT(V)+CON(2)*V
+
+        !F = -(1/IONPOT)*ZA_RATIO*(1/F_V)
+        F = -78500*(ZA_RATIO/E)*LOG((1.166*E)/IONPOT)
+        RETURN
+    END FUNCTION STOPPING_FACTOR
+
+    FUNCTION DERIV_SPF(E, Z, N) RESULT(S)
+        !#################################################################################
+        !#THIS FUNCTION CALCULATES THE DERIVATIVE OF THESTOPPING POWER FACTOR            #
+        !#AS DESCRIBED IN                                                                #
+        !#  LOVE, G.; COX, M. G.; SCOTT, V. D. A versatile atomic number correction for  #
+        !#  electron-probe microanalysis. Journal of Physics D: Applied Physics, 1978,   #
+        !#  11.1: 7.                                                                     #
+        !#################################################################################
+        !#INPUTS:                                                                        #
+        !#      -E      (DBLE)      ENERGY                          [keV]                #
+        !#      -Z      (INT)       ATOMIC NUMBER OF WINDOW         [-]                  #
+        !#      -N      (INT)       LINE SELECTOR                   [-]                  #
+        !#################################################################################
+        REAL(DP), INTENT(IN) :: E
+        INTEGER, INTENT(IN) :: Z
+        INTEGER, INTENT(IN) :: N
+        REAL(WP) :: S
+
+        REAL(WP) :: CS
+        REAL(WP) :: SF
+
+        CS = CS_ION(E, Z, N)
+        SF = STOPPING_FACTOR(E, Z)
+
+        S = CS/SF
+        RETURN
+    END FUNCTION DERIV_SPF
+
+    FUNCTION STOPPING_POWER_FACTOR(E, Z, N) RESULT(S)
+        !#################################################################################
+        !#THIS FUNCTION CALCULATES THE STOPPING POWER FACTOR AS DESCRIBED IN             #
+        !#  LOVE, G.; COX, M. G.; SCOTT, V. D. A versatile atomic number correction for  #
+        !#  electron-probe microanalysis. Journal of Physics D: Applied Physics, 1978,   #
+        !#  11.1: 7.                                                                     #
+        !#################################################################################
+        !#INPUTS:                                                                        #
+        !#      -E      (DBLE)      ENERGY                          [keV]                #
+        !#      -Z      (INT)       ATOMIC NUMBER OF WINDOW         [-]                  #
+        !#      -N      (INT)       LINE SELECTOR                   [-]                  #
+        !#################################################################################
+        REAL(DP), INTENT(IN) :: E
+        INTEGER, INTENT(IN) :: Z
+        INTEGER, INTENT(IN) :: N
+        REAL(WP) :: S
+
+        REAL(DP) :: E_INIT
+        REAL(DP) :: E_FINAL
+
+        E_INIT = VTUBE
+        E_FINAL = E
+
+        S = INTEGRATE(DERIV_SPF, E_INIT, E_FINAL, INT(10), Z, N)
+        RETURN
+    END FUNCTION STOPPING_POWER_FACTOR
+
+    FUNCTION TUBE_ATTEN(E, Z ,D) RESULT(W)
+        !#################################################################################
+        !#THIS FUNCTION CALCULATES THE ATTENUATION OF THE INTENSITY CAUSED BY            #
+        !#THE TUBE-WINDOW                                                                #
+        !#################################################################################
+        !#INPUTS:                                                                        #
+        !#      -E      (DBLE)      ENERGY                          [keV]                #
+        !#      -Z      (INT)       ATOMIC NUMBER OF WINDOW         [-]                  #
+        !#      -D      (WP)        THICKNESS OF WINDOW             [um]                 #
+        !#################################################################################
+        IMPLICIT NONE
+        REAL(DP), INTENT(IN)    :: E
+        INTEGER, INTENT(IN)     :: Z
+        REAL(WP), INTENT(IN)    :: D
+        REAL(WP)    :: W
+
+        W = EXP(-MAC(Z, E)*D*NIST_DENSITY(Z)*1E-4)
+        RETURN
+    END FUNCTION TUBE_ATTEN
+
+    FUNCTION FILTER_ATTEN(E, Z ,D) RESULT(W)
+        !#################################################################################
+        !#THIS FUNCTION CALCULATES THE ATTENUATION OF THE INTENSITY CAUSED BY            #
+        !#THE FILTER                                                                     #
+        !#################################################################################
+        !#INPUTS:                                                                        #
+        !#      -E      (DBLE)      ENERGY                          [keV]                #
+        !#      -Z      (INT)       ATOMIC NUMBER OF FILTER         [-]                  #
+        !#      -D      (WP)        THICKNESS OF FILTER             [um]                 #
+        !#################################################################################
+        IMPLICIT NONE
+        REAL(DP), INTENT(IN)    :: E
+        INTEGER, INTENT(IN)     :: Z
+        REAL(WP), INTENT(IN)    :: D
+        REAL(WP)    :: W
+
+        IF (D.GT. 0) THEN
+            W = EXP(-MAC(Z, E)*D*NIST_DENSITY(Z)*1E-4)
+            RETURN
+        ELSE
+            W = 1_QP
+            RETURN
+        ENDIF
+        RETURN
+    END FUNCTION FILTER_ATTEN
 END MODULE ANODE

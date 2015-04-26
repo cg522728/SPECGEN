@@ -28,54 +28,29 @@ CONTAINS
         Z_PRESENT = PRESENT(Z)
         XSTEP = (XMAX-XMIN)*(DBLE(NSTEP)**(-1))
         FUNCVAL = 0_QP
-        IF (Z_PRESENT) THEN
-            IF (N_PRESENT) THEN
-                FI = FUNC(XMIN, Z, N)/2
-                FF = FUNC(XMAX, Z, N)/2
-                DO CNT = 1, (NSTEP-1)
+        IF (Z_PRESENT .AND. N_PRESENT) THEN
+            FI = FUNC(XMIN, Z, N)/2
+            FF = FUNC(XMAX, Z, N)/2
+            DO CNT = 1, (NSTEP-1)
                 !WRITE (6,'(1H[, A16, 2H]*,I4,1H/,I4,A1,$)',ADVANCE='NO') 'INTEGRATE', CNT, NSTEP-1, CHAR(13)
-                    XVAL = XMIN + CNT*XSTEP
-                    TMP = FUNC(XVAL, Z, N)
-                    FUNCVAL = FUNCVAL + TMP
-                END DO
-                INTEGRATE = XSTEP*(FI + FUNCVAL + FF)
-                RETURN
-            ELSE
-                FI = FUNC(XMIN, Z)/2
-                FF = FUNC(XMAX, Z)/2
-                DO CNT = 1, (NSTEP-1)
-                 !WRITE (6,'(1H[, A16, 2H]*,I4,1H/,I4,A1,$)',ADVANCE='NO') 'INTEGRATE', CNT, NSTEP-1, CHAR(13)
-                    XVAL = XMIN + CNT*XSTEP
-                    TMP = FUNC(XVAL, Z)
-                    FUNCVAL = FUNCVAL + TMP
-                END DO
-                INTEGRATE = XSTEP*(FI + FUNCVAL + FF)
-                RETURN
-            ENDIF
-        ELSE
-            IF (N_PRESENT) THEN
-                FI = FUNC(XMIN, N)/2
-                FF = FUNC(XMAX, N)/2
-                DO CNT = 1, (NSTEP-1)
+                XVAL = XMIN + CNT*XSTEP
+                TMP = FUNC(XVAL, Z, N)
+                FUNCVAL = FUNCVAL + TMP
+            END DO
+            INTEGRATE = XSTEP*(FI + FUNCVAL + FF)
+            RETURN
+        ENDIF
+        IF (Z_PRESENT .AND. .NOT.N_PRESENT) THEN
+            FI = FUNC(XMIN, Z)/2
+            FF = FUNC(XMAX, Z)/2
+            DO CNT = 1, (NSTEP-1)
                 !WRITE (6,'(1H[, A16, 2H]*,I4,1H/,I4,A1,$)',ADVANCE='NO') 'INTEGRATE', CNT, NSTEP-1, CHAR(13)
-                    XVAL = XMIN + CNT*XSTEP
-                    TMP = FUNC(XVAL, N)
-                    FUNCVAL = FUNCVAL + TMP
-                END DO
-                INTEGRATE = XSTEP*(FI + FUNCVAL + FF)
-                RETURN
-            ELSE
-                FI = FUNC(XMIN)/2
-                FF = FUNC(XMAX)/2
-                DO CNT = 1, (NSTEP-1)
-                 !WRITE (6,'(1H[, A16, 2H]*,I4,1H/,I4,A1,$)',ADVANCE='NO') 'INTEGRATE', CNT, NSTEP-1, CHAR(13)
-                    XVAL = XMIN + CNT*XSTEP
-                    TMP = FUNC(XVAL)
-                    FUNCVAL = FUNCVAL + TMP
-                END DO
-                INTEGRATE = XSTEP*(FI + FUNCVAL + FF)
-                RETURN
-            ENDIF
+                XVAL = XMIN + CNT*XSTEP
+                TMP = FUNC(XVAL, Z)
+                FUNCVAL = FUNCVAL + TMP
+            END DO
+            INTEGRATE = XSTEP*(FI + FUNCVAL + FF)
+            RETURN
         ENDIF
         RETURN
     END FUNCTION INTEGRATE

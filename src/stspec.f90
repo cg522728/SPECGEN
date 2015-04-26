@@ -119,7 +119,7 @@ PROGRAM STSPEC
         READ (100,200) EI
         TMP = 0_QP
         I_CHAR = 0_QP
-        ITMP = I_ST_CONT(CNT)
+        ITMP = 0_QP!I_ST_CONT(CNT)
         LABEL = ''
         DO N = 1, SIZE(LINE)
             WRITE (6,'(I10,1H/,I10,3H-->,I3,1H/,I3,A1,$)',ADVANCE='NO'), CNT, NSTEP, N, SIZE(LINE), CHAR(13)
@@ -127,14 +127,14 @@ PROGRAM STSPEC
             IF (EA.EQ.0) CYCLE
             IF (ISNAN(EA)) CYCLE
             IF (EA.GE.EI .AND. EA.LT.(EI+ESTEP)) THEN
-                TMP = AN_SCAT_RAYL(N)
+                !TMP = AN_SCAT_RAYL(N)
                 ITMP = ITMP + TMP
                 TMP = 0_QP
                 LABEL = TRIM(LABEL)//'R'
             ENDIF
             EC = ComptonEnergy(DBLE(EA), DBLE((PI/2)-A_ST_AZIM_OUT))
             IF (EC.GE.EI .AND. EC.LT.(EI+ESTEP)) THEN
-                TMP = AN_SCAT_COMP(N)
+                !TMP = AN_SCAT_COMP(N)
                 ITMP = ITMP + TMP
                 TMP = 0_QP
                 LABEL = TRIM(LABEL)//'C'
@@ -145,7 +145,7 @@ PROGRAM STSPEC
                 IF (EC.LT.EI) CYCLE
                 IF (EC.GE.EI .AND. EC.LT.(EI+ESTEP)) THEN
                     !I_CHAR = SECT_CHAR(N, CP_ST%ELEMENTS(CNT2))
-                    I_CHAR = I_ST_CHAR(N, CNT2)
+                    !I_CHAR = I_ST_CHAR(N, CNT2)
                     ITMP = ITMP + I_CHAR
                     I_CHAR = 0_QP
                     WRITE (NLABEL,'(I3)') N
@@ -167,7 +167,6 @@ PROGRAM STSPEC
     END DO
     REWIND(104)
 
-CALL CONVOLUTE_SPEC()
 200 FORMAT(ES32.20E3)
 201 FORMAT(ES32.20E3, 2X, ES32.20E4, 2X, A16)
 999 CLOSE(100)

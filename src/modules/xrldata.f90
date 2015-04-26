@@ -1,211 +1,225 @@
 MODULE XRLDATA
     USE :: xraylib
     USE :: TYPES
+    USE :: CFGDATA
     implicit none
     INTEGER, DIMENSION(111)   :: SHELL
+    INTEGER, DIMENSION(111)   :: TOSHELL
     INTEGER, DIMENSION(111)   :: LINE
+    REAL(QP), DIMENSION(92)   :: NIST_ZA_RATIO
+    REAL(WP), DIMENSION(92)   :: NIST_ION_POT
+    REAL(QP), DIMENSION(92)   :: NIST_DENSITY
     INCLUDE 'shell.f90'
     INCLUDE 'line.f90'
 CONTAINS
-    FUNCTION CS_FLUOR_CHG(Z, N, EI)
+    FUNCTION CS_FLUOR_CHG(Z, N, E) RESULT(CS)
+        !#################################################################################
+        !#PROVIDES A LOCAL INTERFACE TO CS_FLUORLINE_KISSEL_CASCADE WHICH CHECKS THAT THE#
+        !#ENERGY INPUT IS ABOVE THE FLUORESCENCE EDGE ENERGY.                            #
+        !#################################################################################
+        !#INPUT:                                                                         #
+        !#      -Z      (INT)       ATOMIC NUMBER                                        #
+        !#      -N      (INT)       LINE SELECTOR                                        #
+        !#      -E      (DBLE)      ENERGY                                               #
+        !#################################################################################
         IMPLICIT NONE
-        !f2py INTEGER, PARAMETER ::  QP = selected_real_kind(8)
-        !f2py INTEGER, PARAMETER ::  DP = selected_real_kind(8)
-        REAL(QP)    :: CS_FLUOR_CHG
-        REAL(QP)    :: CS
-        REAL(DP)    :: EI
+        INTEGER, INTENT(IN)     :: Z
+        INTEGER, INTENT(IN)     :: N
+        REAL(DP), INTENT(IN)    :: E
+        REAL(WP)    :: CS
+
         REAL(DP)    :: E_EDGE
-        INTEGER     :: Z
-        INTEGER     :: N
 
         E_EDGE = EdgeEnergy(Z, SHELL(N))
-        IF (EI.LT.E_EDGE) THEN
-            CS_FLUOR_CHG = 0_DP
+        IF (E.LT.E_EDGE) THEN
+            CS = 0_WP
             RETURN
         ENDIF
         CALL SetErrorMessages(0)
-        CS = CS_Fluorline_Kissel_Cascade(Z, LINE(N), EI)
+        CS = CS_Fluorline_Kissel_Cascade(Z, LINE(N), E)
         CALL SetErrorMessages(1)
-        CS_FLUOR_CHG = CS
         RETURN
     END FUNCTION CS_FLUOR_CHG
-    FUNCTION FLUORYIELD_CHG(Z, SHELLIN)
-        !#################################################################################
-        !#THIS FUNCTION CALCULATES THE FLUORESCENCE YIELD                                #
-        !#OF AN ATOMIC SHELL USING THE FORMULAS                                          #
-        !#ACCORDING TO HUBBEL ET AL (1994) AS                                            #
-        !#LISTED IN 'HANDBOOK OF X-RAY SPECTROMETRY' 2ND ED                              #
-        !#(PRACTICAL SPECTROSCOPY SERIES VOLUME 29)                                      #
-        !#USING THE FOLLOWING INPUTS:                                                    #
-        !#  -Z          (INT)   :ATOMIC NUMBER                                           #
-        !#  -SHELLIN    (INT)   :SHELL IDENTIFIER AS DEFINED IN XRAYLIB                  #
-        !#################################################################################
-        USE :: xraylib
-        IMPLICIT NONE
-        !f2py INTEGER, PARAMETER ::  QP = selected_real_kind(8)
-        !f2py INTEGER, PARAMETER ::  DP = selected_real_kind(8)
-        REAL(QP), PARAMETER, DIMENSION(0:3) :: CK = (/0.0370, 0.03112, 5.44E-5, -1.25E-6/)
-        REAL(QP), PARAMETER, DIMENSION(0:3) :: CL = (/0.17765, 0.00298937, 8.91297E-5, -2.67184E-7/)
-        REAL(QP), PARAMETER, DIMENSION(2)   :: CM = (/1.29E-9, 13./)
-        INTEGER :: Z
-        INTEGER :: SHELLIN
-        REAL(QP) :: FLUORYIELD_CHG
-        REAL(QP) :: OMEGA1, OMEGA2
-        INTEGER :: N
 
-        DATA    OMEGA1/0/
-        DATA    OMEGA2/0/
-
-        IF (SHELLIN.EQ. K_SHELL) GO TO 101
-        IF (SHELLIN.EQ. L3_SHELL) GO TO 102
-        IF (SHELLIN.EQ. L2_SHELL) GO TO 102
-        IF (SHELLIN.EQ. L1_SHELL) GO TO 102
-        IF (SHELLIN.EQ. M5_SHELL) GO TO 103
-        IF (SHELLIN.EQ. M4_SHELL) GO TO 103
-        IF (SHELLIN.EQ. M3_SHELL) GO TO 103
-        IF (SHELLIN.EQ. M2_SHELL) GO TO 103
-        IF (SHELLIN.EQ. M1_SHELL) GO TO 103
-        FLUORYIELD_CHG = 0
-        RETURN
-
-101     N = 0
-        DO N=0,3
-            OMEGA1 = OMEGA1 + CK(N)*Z**N
-        END DO
-        FLUORYIELD_CHG = OMEGA1**4*(1+OMEGA1**4)**(-1)
-        RETURN
-102     IF (Z.GE. 3 .AND. Z.LE.36) GO TO 2
-        IF (Z.GE. 37 .AND. Z.LE.100) GO TO 3
-2       FLUORYIELD_CHG = 1.939E-8*Z**(3.8874)
-        RETURN
-3       N = 0
-        DO N=0,3
-            OMEGA1 = OMEGA1 + CL(N)*Z**N
-        END DO
-        FLUORYIELD_CHG = OMEGA1**4*(1+OMEGA1**4)**(-1)
-        RETURN
-103     FLUORYIELD_CHG = CM(1)*(Z-CM(2))**4
-        RETURN
-    END FUNCTION
-    FUNCTION MAC(Z, E)
+    FUNCTION MAC(Z, E) RESULT(MU)
         !#################################################################################
         !#THIS FUNCTION CALCULATES THE MASS ABSORPTION COEFFICIENT FOR AN ELEMENT        #
-        !#BASED ON THE FOLLOWING INPUTS:                                                 #
-        !#  -Z      (INT)   :ATOMIC NUMBER                                               #
-        !#  -E      (DBLE)  :ENERGY                                                      #
-        !#THE CALCULATIONS ARE PERFORMED USING THE TOTAL CROSS SECTIONS IN BARNS/ATOM    #
-        !#AS DELIVERED BY THE XRAYLIBFUNCTION CSb_Total()                                #
         !#################################################################################
-        USE :: xraylib
+        !#INPUTS:                                                                        #
+        !#      -Z      (INT)   ATOMIC NUMBER                                            #
+        !#      -E      (DBLE)  ENERGY                                                   #
+        !#################################################################################
         IMPLICIT NONE
-        !f2py INTEGER, PARAMETER ::  QP = selected_real_kind(8)
-        !f2py INTEGER, PARAMETER ::  DP = selected_real_kind(8)
-        INTEGER :: Z
-        REAL(DP) :: E
-        REAL(QP), PARAMETER :: U = 1.6605402E-24
-        REAL(QP) :: MAC
+        INTEGER, INTENT(IN) :: Z
+        REAL(DP), INTENT(IN) :: E
+        REAL(WP) :: MU
 
-        MAC = CS_TOTAL(Z, E)
+        MU= CS_TOTAL(Z, E)
         RETURN
     END FUNCTION
-    FUNCTION MAC_COMP(CP, E)
+
+    FUNCTION MAC_COMP(CP, E) RESULT(MU)
         !#################################################################################
         !#THIS FUNCTION CALCULATES THE MASS ABSORPTION COEFFICIENT FOR A COMPOUND        #
-        !#BASED ON THE FOLLOWING INPUTS:                                                 #
-        !#  -Z      (INT)   :ATOMIC NUMBER                                               #
-        !#  -E      (DBLE)  :ENERGY                                                      #
-        !#THE CALCULATIONS ARE PERFORMED USING THE TOTAL CROSS SECTIONS IN BARNS/ATOM    #
-        !#AS DELIVERED BY THE XRAYLIBFUNCTION CSb_Total()                                #
         !#################################################################################
-        USE :: xraylib
-        USE :: CFGDATA
+        !#INPUTS:                                                                        #
+        !#      -Z      (INT)   ATOMIC NUMBER                                            #
+        !#      -E      (DBLE)  ENERGY                                                   #
+        !#################################################################################
         IMPLICIT NONE
-        !f2py INTEGER, PARAMETER ::  QP = selected_real_kind(8)
-        !f2py INTEGER, PARAMETER ::  DP = selected_real_kind(8)
-        INTEGER :: Z, CNT
-        REAL(DP) :: E
-        REAL(QP), DIMENSION(:), ALLOCATABLE :: MAC_TMP
-        REAL(QP) :: MAC_COMP
-        TYPE(CompoundData), POINTER :: CP
+        TYPE(CompoundData), POINTER, INTENT(IN) :: CP
+        REAL(DP), INTENT(IN) :: E
+        REAL(WP) :: MU
 
-        ALLOCATE(MAC_TMP(CP_ST%NELEMENTS))
+        INTEGER :: Z = 0
+        REAL(WP) :: MAC_TMP = 0_WP
+
+        INTEGER :: CNT
+
         DO CNT=1,CP%NELEMENTS
             Z = CP%ELEMENTS(CNT)
-            MAC_TMP(CNT) = MAC(Z, E)*CP%MASSFRACTIONS(CNT)
+            MAC_TMP = MAC_TMP + MAC(Z, E)*CP%MASSFRACTIONS(CNT)
         END DO
-        MAC_COMP = SUM(MAC_TMP)
-        MAC_COMP = MAC_COMP
+        MU = MAC_TMP
         RETURN
     END FUNCTION
-        FUNCTION CS_FLUOR_CP_CHG(CP, N, EC)
-        USE :: xraylib
-        USE :: CFGDATA
-        IMPLICIT NONE
-        !f2py INTEGER, PARAMETER ::  QP = selected_real_kind(8)
-        !f2py INTEGER, PARAMETER ::  DP = selected_real_kind(8)
-        INTEGER :: Z, CNT, N
-        REAL(DP) :: EC, E_EDGE
-        REAL(QP), PARAMETER :: U = 1.6605402E-24
-        REAL(QP), DIMENSION(:), ALLOCATABLE :: TMP
-        REAL(QP) :: CS_FLUOR_CP_CHG
-        TYPE(CompoundData), POINTER :: CP
 
-        ALLOCATE(TMP(CP%NELEMENTS))
+    FUNCTION CS_FLUOR_CP_CHG(CP, N, E) RESULT(CS)
+        !#################################################################################
+        !#THIS FUNCTION CALCULATES THE X-RAY FLUORESCENCE PRODUCTION CROSS SECTION       #
+        !#FOR A COMPOUND                                                                 #
+        !#################################################################################
+        !#INPUTS:                                                                        #
+        !#      -CP     (STRUC) XRAYLIB COMPOUND DATA                                    #
+        !#      -N      SHELL SELECTOR                                                   #
+        !#      -E      (DBLE)  ENERGY                                                   #
+        !#################################################################################
+        IMPLICIT NONE
+        TYPE(CompoundData), POINTER, INTENT(IN) :: CP
+        INTEGER, INTENT(IN) :: N
+        REAL(DP), INTENT(IN) :: E
+        REAL(WP) :: CS
+
+        REAL(WP) :: CS_TMP = 0_WP
+
+        INTEGER :: CNT
+
         DO CNT=1,CP%NELEMENTS
-            Z = CP%ELEMENTS(CNT)
-            E_EDGE = EdgeEnergy(Z, SHELL(N))
-            IF (EC.LT.E_EDGE) THEN
-                TMP(CNT) = 0_QP
-                CYCLE
-            ENDIF
-            CALL SetErrorMessages(0)
-            TMP(CNT) = CS_Fluorline_Kissel_Cascade(CP%ELEMENTS(CNT), LINE(N), DBLE(EC))&
-                        *CP%MASSFRACTIONS(CNT)
-            CALL SetErrorMessages(1)
+            CS_TMP = CS_TMP&
+                        + CS_FLUOR_CHG(CP%ELEMENTS(CNT), LINE(N), E)&
+                            *CP%MASSFRACTIONS(CNT)
         END DO
-        CS_FLUOR_CP_CHG = SUM(TMP)
-        CS_FLUOR_CP_CHG = CS_FLUOR_CP_CHG
+        CS = CS_TMP
+        RETURN
     END FUNCTION
-    FUNCTION TRANSPROB(Z, N)
-        IMPLICIT NONE
-        !f2py INTEGER, PARAMETER ::  QP = selected_real_kind(8)
-        !f2py INTEGER, PARAMETER ::  DP = selected_real_kind(8)
-        REAL(QP)    :: TRANSPROB
-        INTEGER     :: N
-        INTEGER     :: Z
-        INTEGER     :: CNT
-        REAL(QP)    :: RIJ
-        REAL(QP), DIMENSION(:), ALLOCATABLE    :: T
-        ALLOCATE(T(SIZE(LINE)))
-        T = 0._QP
 
-        DO CNT = 1, SIZE(LINE)
-            T(CNT) = RadRate(Z, LINE(CNT))
-        END DO
-        RIJ = RadRate(Z, N)/SUM(T)
-        TRANSPROB = RIJ
+    FUNCTION TRANSPROB(Z, N)
+        !#################################################################################
+        !#THIS FUNCTION CALCULATES TRANSITION PROBABILITY AS DEFINED IN                  #
+        !#  X-Ray Fluorescence Cross Sections for K and L X-Rays of the Elements         #
+        !3  M.O. Krause, C.W. Nestor, Jr., C.J. Sparks, Jr. and E. Ricci                 #
+        !#  ORNL-5399, pag 120, 1978                                                     #
+        !#THIS IS DONE BY MULTIPLYING THE RELATIVE RADIATIVE RATE WITH                   #
+        !#THE ATOMIC LEVEL WIDTH                                                         #
+        !#################################################################################
+        !#INPUTS:                                                                        #
+        !#      -Z      (INT)   ATOMIC NUMBER                                            #
+        !#      -N      (INT)   LINE SELECTOR                                            #
+        !#################################################################################
+        IMPLICIT NONE
+        REAL(QP)    :: TRANSPROB
+        INTEGER, INTENT(IN)     :: N
+        INTEGER, INTENT(IN)     :: Z
+        REAL(WP) :: LW
+
+        LW = AtomicLevelWidth(Z, SHELL(N))
+        TRANSPROB = RadRate(Z, LINE(N))*LW*1E3
         RETURN
     END FUNCTION TRANSPROB
-    FUNCTION CALC_CHI(CP, E_EXC, E_CHAR, A_IN, A_OUT)
-        REAL(QP)    :: CALC_CHI
-        REAL(DP), INTENT(IN)    :: E_EXC
-        REAL(DP), INTENT(IN)    :: E_CHAR
-        REAL(QP), INTENT(IN)    :: A_IN
-        REAL(QP), INTENT(IN)    :: A_OUT
-        TYPE(CompoundData), POINTER, INTENT(IN) :: CP
+    SUBROUTINE LOAD_NIST()
+        !#################################################################################
+        !#THIS SUBROUTINE LOADS THE FOLLOWING ELEMENTAL DATA FROM A FILE:                #
+        !#      -Z/A-RATIO                                                               #
+        !#      -MEAN IONISATION POTENTIAL IN eV                                         #
+        !#      -DENSITY IN g/cm^3                                                       #
+        !#SOME DENSITY VALUES ARE NOMINAL, VALUES FOR Z=85 AND Z=87 WERE SET TO 10       #
+        !#TO COMPLETE THE SET.                                                           #
+        !#THE DATA IS STORED IN THE FOLLOWING ARRAYS:                                    #
+        !#  -Z/A-RATIO                       : NIST_ZA_RATIO                             #
+        !#  -MEAN IONISATION POTENTIAL       : NIST_ION_POT                              #
+        !#  -DENSITY                         : NIST_DENSITY                              #
+        !#THIS DATASET WAS OBTAINED FROM:                                                #
+        !#  http://http://physics.nist.gov/PhysRefData/XrayMassCoef/tab1.html            #
+        !#################################################################################
+        INTEGER     :: Z
+        CHARACTER(LEN=2)    :: ELEMENT_SYM
+        CHARACTER(LEN=9)    :: ELEMENT_NAME
+        REAL(QP)    :: ZA_RATIO
+        REAL(WP)    :: I
+        REAL(QP)    :: DENSITY
 
-        REAL(QP)    :: MAC_EXC = 0_QP
-        REAL(QP)    :: MAC_CHAR = 0_QP
-        REAL(QP)    :: MAC_TMP = 0_QP
-        INTEGER     :: CNT
+        NIST_ZA_RATIO = 0_QP
+        NIST_ION_POT = 0_WP
+        NIST_DENSITY = 0_QP
 
-        DO CNT = 1, CP%NELEMENTS
-            MAC_TMP = MAC_COMP(CP, E_EXC)
-            MAC_EXC = MAC_EXC + MAC_TMP*CP%MASSFRACTIONS(CNT)
-            MAC_TMP = MAC_COMP(CP, E_CHAR)
-            MAC_CHAR = MAC_CHAR + MAC_TMP*CP%MASSFRACTIONS(CNT)
+        OPEN(UNIT=1,FILE='nist.dat')
+        DO
+            READ (1,*,END=999) Z, ELEMENT_SYM, ELEMENT_NAME, ZA_RATIO, I, DENSITY
+                NIST_ZA_RATIO(Z) = ZA_RATIO
+                NIST_ION_POT(Z) = I*(1E-3)
+                NIST_DENSITY(Z) = DENSITY
         END DO
-        CALC_CHI = (MAC_EXC/SIN(A_IN))+(MAC_CHAR/SIN(A_OUT))
+999     RETURN
+    END SUBROUTINE LOAD_NIST
+
+    FUNCTION EDGE_ENERGY(Z, N) RESULT(E)
+        !#################################################################################
+        !#THIS FUNCTION PROVIDES AN INTERFACE TO THE XRAYLIB FUNCTION                    #
+        !#      EdgeEnergy(Z, N)                                                         #
+        !#################################################################################
+        !#INPUTS:                                                                        #
+        !#      -Z      (INT)   ATOMIC NUMBER                                            #
+        !#      -N      (INT)   SHELL SELECTOR                                           #
+        !#################################################################################
+        INTEGER, INTENT(IN) :: Z
+        INTEGER, INTENT(IN) :: N
+        REAL(DP) :: E
+
+        E = EdgeEnergy(Z, SHELL(N))
         RETURN
-    END FUNCTION CALC_CHI
+    END FUNCTION EDGE_ENERGY
+
+    FUNCTION FLUOR_YIELD(Z, N) RESULT(W)
+        !#################################################################################
+        !#THIS FUNCTION PROVIDES AN INTERFACE TO THE XRAYLIB FUNCTION                    #
+        !#      FluorYield(Z, N)                                                         #
+        !#################################################################################
+        !#INPUTS:                                                                        #
+        !#      -Z      (INT)   ATOMIC NUMBER                                            #
+        !#      -N      (INT)   SHELL SELECTOR                                           #
+        !#################################################################################
+        INTEGER, INTENT(IN) :: Z
+        INTEGER, INTENT(IN) :: N
+        REAL(WP) :: W
+
+        W = FluorYield(Z, SHELL(N))
+        RETURN
+    END FUNCTION FLUOR_YIELD
+
+    FUNCTION LINE_ENERGY(Z, N) RESULT(E)
+        !#################################################################################
+        !#THIS FUNCTION PROVIDES AN INTERFACE TO THE XRAYLIB FUNCTION                    #
+        !#      LineEnergy(Z, N)                                                         #
+        !#################################################################################
+        !#INPUTS:                                                                        #
+        !#      -Z      (INT)   ATOMIC NUMBER                                            #
+        !#      -N      (INT)   LINE SELECTOR                                            #
+        !#################################################################################
+        INTEGER, INTENT(IN) :: Z
+        INTEGER, INTENT(IN) :: N
+        REAL(DP) :: E
+
+        E = LineEnergy(Z, LINE(N))
+        RETURN
+    END FUNCTION LINE_ENERGY
 END MODULE XRLDATA

@@ -1,6 +1,6 @@
 MODULE TYPES
-    implicit none
-    !INTEGER, PARAMETER ::  QP = selected_real_kind(p=30)
-    INTEGER, PARAMETER ::  QP = selected_real_kind(p=15)
-    INTEGER, PARAMETER ::  DP = selected_real_kind(p=15)
+    IMPLICIT NONE
+    INTEGER, PARAMETER ::   WP = SELECTED_REAL_KIND(P=30)
+    INTEGER, PARAMETER ::   QP = SELECTED_REAL_KIND(P=30)
+    INTEGER, PARAMETER ::   DP = SELECTED_REAL_KIND(P=15)
 END MODULE TYPES
