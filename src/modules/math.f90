@@ -38,6 +38,7 @@ CONTAINS
                 FUNCVAL = FUNCVAL + TMP
             END DO
             INTEGRATE = XSTEP*(FI + FUNCVAL + FF)
+            FUNCVAL = 0_QP
             RETURN
         ENDIF
         IF (Z_PRESENT .AND. .NOT.N_PRESENT) THEN
@@ -50,6 +51,20 @@ CONTAINS
                 FUNCVAL = FUNCVAL + TMP
             END DO
             INTEGRATE = XSTEP*(FI + FUNCVAL + FF)
+            FUNCVAL = 0_QP
+            RETURN
+        ENDIF
+        IF (.NOT.Z_PRESENT .AND. .NOT.N_PRESENT) THEN
+            FI = FUNC(XMIN)/2
+            FF = FUNC(XMAX)/2
+            DO CNT = 1, (NSTEP-1)
+                !WRITE (6,'(1H[, A16, 2H]*,I4,1H/,I4,A1,$)',ADVANCE='NO') 'INTEGRATE', CNT, NSTEP-1, CHAR(13)
+                XVAL = XMIN + CNT*XSTEP
+                TMP = FUNC(XVAL)
+                FUNCVAL = FUNCVAL + TMP
+            END DO
+            INTEGRATE = XSTEP*(FI + FUNCVAL + FF)
+            FUNCVAL = 0_QP
             RETURN
         ENDIF
         RETURN

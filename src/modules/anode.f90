@@ -8,7 +8,7 @@ MODULE ANODE
     PRIVATE
     PUBLIC ANODE_CONT, ANODE_CHAR, TUBE_ATTEN, FILTER_ATTEN
 CONTAINS
-    FUNCTION ANODE_CHAR(Z, N, OMEGA, I) RESULT(N_CHAR)
+    FUNCTION ANODE_CHAR(Z, N) RESULT(N_CHAR)
         !#################################################################################
         !#THIS FUNCTION CALCULATES THE NUMBER OF COUNTS FOR A CHARACTERISTIC LINE        #
         !#AS DEFINED IN:                                                                 #
@@ -17,13 +17,10 @@ CONTAINS
         !#INPUTS:                                                                        #
         !#      -Z      (INT)       ATOMIC NUMBER                   [-]                  #
         !#      -N      (INT)       LINE SELECTOR                   [-]                  #
-        !#      -OMEGA  (WP)        SOLID ANGLE OF EXIT             [sr]                 #
-        !#      -I      (WP)        TUBE CURRENT                    [mA]                 #
         !#################################################################################
+        IMPLICIT NONE
         INTEGER, INTENT(IN) :: Z
         INTEGER, INTENT(IN) :: N
-        REAL(WP), INTENT(IN) :: OMEGA
-        REAL(WP), INTENT(IN) :: I
         REAL(WP) :: N_CHAR
 
         REAL(DP) :: E_LINE
@@ -35,13 +32,19 @@ CONTAINS
 
         E_LINE = LINE_ENERGY(Z, N)
         E_EDGE = EDGE_ENERGY(Z, N)
+
+        IF (E_EDGE.EQ.0 .OR. E_LINE.EQ.0 .OR. E_LINE.GE.VTUBE) THEN
+            N_CHAR = 0_WP
+            RETURN
+        ENDIF
+
         CONST = EBEL_CONST(N, Z)
-        SPF = STOPPING_POWER_FACTOR(E_LINE, Z, N)
+        SPF = STOPPING_POWER_FACTOR(E_EDGE, Z, N)
         R = BACKSCAT_FACTOR(E_LINE ,Z)
         F = ABSORB_TERM(E_LINE, Z)
 
-        N_CHAR = OMEGA&
-                    *I&
+        N_CHAR = SA_ANODE_OUT&
+                    *ITUBE&
                     *CONST&
                     *SPF&
                     *R&
@@ -51,7 +54,7 @@ CONTAINS
         RETURN
     END FUNCTION ANODE_CHAR
 
-    FUNCTION ANODE_CONT(Z, E, OMEGA, I) RESULT(N_CONT)
+    FUNCTION ANODE_CONT(Z, E) RESULT(N_CONT)
         !#################################################################################
         !#THIS FUNCTION CALCULATES THE NUMBER OF COUNTS AT ENERGY E IN THE CONTINUUM     #
         !#AS DEFINED IN:                                                                 #
@@ -60,24 +63,28 @@ CONTAINS
         !#INPUTS:                                                                        #
         !#      -Z      (INT)       ATOMIC NUMBER                   [-]                  #
         !#      -E      (DBLE)      ENERGY                          [keV]                #
-        !#      -OMEGA  (WP)        SOLID ANGLE OF EXIT             [sr]                 #
-        !#      -I      (WP)        TUBE CURRENT                    [mA]                 #
         !#################################################################################
+        IMPLICIT NONE
         INTEGER, INTENT(IN) :: Z
         REAL(DP), INTENT(IN) :: E
-        REAL(WP), INTENT(IN) :: OMEGA
-        REAL(WP), INTENT(IN) :: I
         REAL(WP) :: N_CONT
 
         REAL(WP) :: INTEGRAL
         REAL(DP) :: E_INIT
         REAL(DP) :: E_FINAL
 
-        E_INIT = E
-        E_FINAL = E + ESTEP
+        E_INIT = E - (ESTEP/2)
+        E_FINAL = E + (ESTEP/2)
+
+        IF (E_FINAL.GT.VTUBE) E_FINAL = VTUBE
+        IF (E_INIT.GE. VTUBE) THEN
+            N_CONT = 0_WP
+            RETURN
+        ENDIF
+
         INTEGRAL = INTEGRATE(DERIV_CONT, E_INIT, E_FINAL, INT(10), Z)
-        N_CONT = OMEGA&
-                    *I&
+        N_CONT = SA_ANODE_OUT&
+                    *ITUBE&
                     *INTEGRAL
         RETURN
     END FUNCTION ANODE_CONT
@@ -92,6 +99,7 @@ CONTAINS
         !#      -E      (DBLE)      ENERGY                          [keV]                #
         !#      -Z      (INT)       ATOMIC NUMBER                   [-]                  #
         !#################################################################################
+        IMPLICIT NONE
         INTEGER, INTENT(IN) :: Z
         REAL(DP), INTENT(IN) :: E
         REAL(WP) :: N_CONT
@@ -99,6 +107,11 @@ CONTAINS
         INTEGER :: N = 0
         REAL(WP) :: CS_SR
         REAL(WP) :: F_ABS
+
+        IF (E.LE.0) THEN
+            N_CONT = 0_WP
+            RETURN
+        ENDIF
 
         F_ABS = ABSORB_TERM(E, Z)
         CS_SR = CS_SMITH_REED(E, Z, N)
@@ -118,6 +131,7 @@ CONTAINS
         !#INPUTS:                                                                        #
         !#      -Z     (INT)    ATOMIC NUMBER                       [-]                  #
         !#################################################################################
+        IMPLICIT NONE
         INTEGER, INTENT(IN) :: Z
         REAL(WP) :: G
 
@@ -142,6 +156,7 @@ CONTAINS
         !#INPUTS:                                                                        #
         !#      -Z     (INT)    ATOMIC NUMBER                       [-]                  #
         !#################################################################################
+        IMPLICIT NONE
         INTEGER, INTENT(IN) :: Z
         REAL(WP) :: I
 
@@ -167,6 +182,7 @@ CONTAINS
         !#INPUTS:                                                                        #
         !#      -Z     (INT)    ATOMIC NUMBER                       [-]                  #
         !#################################################################################
+        IMPLICIT NONE
         INTEGER, INTENT(IN) :: Z
         REAL(WP) :: ETA
 
@@ -192,6 +208,7 @@ CONTAINS
         !#INPUTS:                                                                        #
         !#      -Z     (INT)    ATOMIC NUMBER                       [-]                  #
         !#################################################################################
+        IMPLICIT NONE
         INTEGER, INTENT(IN) :: Z
         REAL(WP) :: RSM
 
@@ -224,6 +241,7 @@ CONTAINS
         !#      -E     (DBLE)   ENERGY                              [keV]                #
         !#      -Z     (INT)    ATOMIC NUMBER                       [-]                  #
         !#################################################################################
+        IMPLICIT NONE
         REAL(DP), INTENT(IN) :: E
         INTEGER, INTENT(IN) :: Z
         REAL(WP) :: RS
@@ -243,6 +261,7 @@ CONTAINS
         ETA = BACKSCAT_COEF(Z)
         RSM = MAX_PATH_LENGTH(Z)
         UZ = VTUBE/E
+
         TMP1 = (CON1(1)&
                 -CON1(2)*ETA&
                 +CON1(3)*(ETA**2))&
@@ -269,12 +288,18 @@ CONTAINS
         !#      -E     (DBLE)   ENERGY                              [keV]                #
         !#      -Z     (INT)    ATOMIC NUMBER                       [-]                  #
         !#################################################################################
+        IMPLICIT NONE
         REAL(DP), INTENT(IN) :: E
         INTEGER, INTENT(IN) :: Z
         REAL(WP) :: F
 
         REAL(WP) :: CHI
         REAL(WP) :: RS
+
+        IF (E.EQ.VTUBE) THEN
+            F = 0_WP
+            RETURN
+        ENDIF
 
         CHI = MAC(Z, E)/SIN(A_TAKE_OFF)
         RS = 2*MEAN_MASS_DEPTH(E, Z)
@@ -296,6 +321,7 @@ CONTAINS
         !#THE LINE SELECTOR IS SET TO ZERO TU USE THE CROSS SECTION FOR THE              #
         !#CONTINUUM.                                                                     #
         !#################################################################################
+        IMPLICIT NONE
         INTEGER, INTENT(IN) :: Z
         REAL(DP), INTENT(IN) :: E
         INTEGER, INTENT(IN) :: N
@@ -332,6 +358,7 @@ CONTAINS
         !#THE LINE SELECTOR IS SET TO ZERO TU USE THE CROSS SECTION FOR THE              #
         !#CONTINUUM.                                                                     #
         !#################################################################################
+        IMPLICIT NONE
         REAL(QP)    :: EBEL_CONST
         INTEGER, INTENT(IN) :: N
         INTEGER, INTENT(IN) :: Z
@@ -432,6 +459,7 @@ CONTAINS
         !#INPUTS:                                                                        #
         !#      -UZ     (DBLE)      OVERVOLTAGE RATIO               [-]                  #
         !#################################################################################
+        IMPLICIT NONE
         REAL(DP), INTENT(IN) :: UZ
         REAL(WP) :: I
 
@@ -460,6 +488,7 @@ CONTAINS
         !#INPUTS:                                                                        #
         !#      -UZ     (DBLE)      OVERVOLTAGE RATIO               [-]                  #
         !#################################################################################
+        IMPLICIT NONE
         REAL(DP), INTENT(IN) ::UZ
         REAL(WP) :: G
 
@@ -489,6 +518,7 @@ CONTAINS
         !#      -E      (DBLE)      ENERGY                          [keV]                #
         !#      -Z      (INT)       ATOMIC NUMBER OF WINDOW         [-]                  #
         !#################################################################################
+        IMPLICIT NONE
         REAL(DP), INTENT(IN) :: E
         INTEGER, INTENT(IN) :: Z
         REAL(WP) :: R
@@ -519,6 +549,7 @@ CONTAINS
         !#      -Z      (INT)       ATOMIC NUMBER OF WINDOW         [-]                  #
         !#      -N      (INT)       SHELL SELECTOR                  [-]                  #
         !#################################################################################
+        IMPLICIT NONE
         REAL(DP), INTENT(IN) :: E
         INTEGER, INTENT(IN) :: Z
         INTEGER, INTENT(IN) :: N
@@ -557,6 +588,7 @@ CONTAINS
         !#      -E      (DBLE)      ENERGY                          [keV]                #
         !#      -Z      (INT)       ATOMIC NUMBER OF WINDOW         [-]                  #
         !#################################################################################
+        IMPLICIT NONE
         REAL(DP), INTENT(IN) :: E
         INTEGER, INTENT(IN) :: Z
         REAL(WP) :: F
@@ -574,8 +606,8 @@ CONTAINS
 
         F_V = CON(1)*SQRT(V)+CON(2)*V
 
-        !F = -(1/IONPOT)*ZA_RATIO*(1/F_V)
-        F = -78500*(ZA_RATIO/E)*LOG((1.166*E)/IONPOT)
+        F = -(1/IONPOT)*ZA_RATIO*(1/F_V)
+        !F = -78500*(ZA_RATIO/E)*LOG((1.166*E)/IONPOT)
         RETURN
     END FUNCTION STOPPING_FACTOR
 
@@ -592,6 +624,7 @@ CONTAINS
         !#      -Z      (INT)       ATOMIC NUMBER OF WINDOW         [-]                  #
         !#      -N      (INT)       LINE SELECTOR                   [-]                  #
         !#################################################################################
+        IMPLICIT NONE
         REAL(DP), INTENT(IN) :: E
         INTEGER, INTENT(IN) :: Z
         INTEGER, INTENT(IN) :: N
@@ -619,6 +652,7 @@ CONTAINS
         !#      -Z      (INT)       ATOMIC NUMBER OF WINDOW         [-]                  #
         !#      -N      (INT)       LINE SELECTOR                   [-]                  #
         !#################################################################################
+        IMPLICIT NONE
         REAL(DP), INTENT(IN) :: E
         INTEGER, INTENT(IN) :: Z
         INTEGER, INTENT(IN) :: N

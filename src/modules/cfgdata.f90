@@ -16,10 +16,10 @@ MODULE CFGDATA
     REAL(QP)                     :: A_INCID
     REAL(QP)                     :: A_TAKE_OFF
     REAL(QP)                     :: A_ST_POL
-    REAL(QP)                     :: A_ST_AZIM_IN
-    REAL(QP)                     :: A_ST_AZIM_OUT
-    REAL(QP)                     :: A_SAM_IN
-    REAL(QP)                     :: A_SAM_OUT
+    REAL(QP)                     :: A_ST_INCID
+    REAL(QP)                     :: A_ST_TAKE_OFF
+    REAL(QP)                     :: A_SAM_INCID
+    REAL(QP)                     :: A_SAM_TAKE_OFF
     REAL(QP)                     :: SA_ANODE_OUT
     REAL(QP)                     :: SA_ST_IN
     REAL(QP)                     :: SA_ST_OUT
@@ -47,7 +47,7 @@ CONTAINS
     !======================================================================================================
     SUBROUTINE INITCFG()
         !#################################################################################
-        !#THIS SUBROUTINE CHECKS IF THE CONFIG FILES ARE                                 #
+        !#THIS SUBROUTINE CHEAZIM_IN CKS IF THE CONFIG FILES ARE                                 #
         !#PRESENT. IF THEY ARE NOT PRESENT IT CREATES                                    #
         !#AND FILLS THEM WITH THE STANDARD DATA FOR                                      #
         !#THE PANALYTICAL EPSILON 5                                                      #
@@ -79,7 +79,7 @@ CONTAINS
             WRITE (1, 202) 'Mo', 'SCT', 90., 45., 45., 1., 1.
             WRITE (1, 202) 'Ag', 'SCT', 90., 45., 45., 1., 1.
             WRITE (1, 202) 'CsI', 'SCT', 90., 45., 45., 1., 1.
-            WRITE (1, 202) 'Ce2O3', 'SCT', 90., 45., 45., 1., 1.
+            WRITE (1, 202) 'CAZIM_IN e2O3', 'SCT', 90., 45., 45., 1., 1.
             WRITE (1, 202) 'B4C', 'POL', 90., 45., 45., 1., 1.
             WRITE (1, 202) 'Al2O3', 'POL', 90., 45., 45., 1., 1.
             CLOSE(1)
@@ -97,98 +97,98 @@ CONTAINS
         INQUIRE(FILE='nist.dat', EXIST=DIR_E)
         IF (.NOT.DIR_E) THEN
             OPEN(UNIT=1,FILE='nist.dat')
-            WRITE (1,*) '1   H   Hydrogen    0.99212     19.2    8.375E-05'
-            WRITE (1,*) '2   He  Helium      0.49968     41.8    1.663E-04'
-            WRITE (1,*) '3   Li  Lithium     0.43221     40.0    5.340E-01'
-            WRITE (1,*) '4   Be  Beryllium   0.44384     63.7    1.848E+00'
-            WRITE (1,*) '5   B   Boron       0.46245     76.0    2.370E+00'
-            WRITE (1,*) '6   C   Carbon      0.49954     78.0    1.700E+00'
-            WRITE (1,*) '7   N   Nitrogen    0.49976     82.0    1.165E-03'
-            WRITE (1,*) '8   O   Oxygen      0.50002     95.0    1.332E-03'
-            WRITE (1,*) '9   F   Fluorine    0.47372     115.0   1.580E-03'
-            WRITE (1,*) '10  Ne  Neon        0.49555     137.0   8.385E-04'
-            WRITE (1,*) '11  Na  Sodium      0.47847     149.0   9.710E-01'
-            WRITE (1,*) '12  Mg  Magnesium   0.49373     156.0   1.740E+00'
-            WRITE (1,*) '13  Al  Aluminum    0.48181     166.0   2.699E+00'
-            WRITE (1,*) '14  Si  Silicon     0.49848     173.0   2.330E+00'
-            WRITE (1,*) '15  P   Phosphorus  0.48428     173.0   2.200E+00'
-            WRITE (1,*) '16  S   Sulfur      0.49897     180.0   2.000E+00'
-            WRITE (1,*) '17  Cl  Chlorine    0.47951     174.0   2.995E-03'
-            WRITE (1,*) '18  Ar  Argon       0.45059     188.0   1.662E-03'
-            WRITE (1,*) '19  K   Potassium   0.48595     190.0   8.620E-01'
-            WRITE (1,*) '20  Ca  Calcium     0.49903     191.0   1.550E+00'
-            WRITE (1,*) '21  Sc  Scandium    0.46712     216.0   2.989E+00'
-            WRITE (1,*) '22  Ti  Titanium    0.45948     233.0   4.540E+00'
-            WRITE (1,*) '23  V   Vanadium    0.45150     245.0   6.110E+00'
-            WRITE (1,*) '24  Cr  Chromium    0.46157     257.0   7.180E+00'
-            WRITE (1,*) '25  Mn  Manganese   0.45506     272.0   7.440E+00'
-            WRITE (1,*) '26  Fe  Iron        0.46556     286.0   7.874E+00'
-            WRITE (1,*) '27  Co  Cobalt      0.45815     297.0   8.900E+00'
-            WRITE (1,*) '28  Ni  Nickel      0.47708     311.0   8.902E+00'
-            WRITE (1,*) '29  Cu  Copper      0.45636     322.0   8.960E+00'
-            WRITE (1,*) '30  Zn  Zinc        0.45879     330.0   7.133E+00'
-            WRITE (1,*) '31  Ga  Gallium     0.44462     334.0   5.904E+00'
-            WRITE (1,*) '32  Ge  Germanium   0.44071     350.0   5.323E+00'
-            WRITE (1,*) '33  As  Arsenic     0.44046     347.0   5.730E+00'
-            WRITE (1,*) '34  Se  Selenium    0.43060     348.0   4.500E+00'
-            WRITE (1,*) '35  Br  Bromine     0.43803     343.0   7.072E-03'
-            WRITE (1,*) '36  Kr  Krypton     0.42959     352.0   3.478E-03'
-            WRITE (1,*) '37  Rb  Rubidium    0.43291     363.0   1.532E+00'
-            WRITE (1,*) '38  Sr  Strontium   0.43369     366.0   2.540E+00'
-            WRITE (1,*) '39  Y   Yttrium     0.43867     379.0   4.469E+00'
-            WRITE (1,*) '40  Zr  Zirconium   0.43848     393.0   6.506E+00'
-            WRITE (1,*) '41  Nb  Niobium     0.44130     417.0   8.570E+00'
-            WRITE (1,*) '42  Mo  Molybdenum  0.43777     424.0   1.022E+01'
-            WRITE (1,*) '43  Tc  Technetium  0.43919     428.0   1.150E+01'
-            WRITE (1,*) '44  Ru  Ruthenium   0.43534     441.0   1.241E+01'
-            WRITE (1,*) '45  Rh  Rhodium     0.43729     449.0   1.241E+01'
-            WRITE (1,*) '46  Pd  Palladium   0.43225     470.0   1.202E+01'
-            WRITE (1,*) '47  Ag  Silver      0.43572     470.0   1.050E+01'
-            WRITE (1,*) '48  Cd  Cadmium     0.42700     469.0   8.650E+00'
-            WRITE (1,*) '49  In  Indium      0.42676     488.0   7.310E+00'
-            WRITE (1,*) '50  Sn  Tin         0.42120     488.0   7.310E+00'
-            WRITE (1,*) '51  Sb  Antimony    0.41889     487.0   6.691E+00'
-            WRITE (1,*) '52  Te  Tellurium   0.40752     485.0   6.240E+00'
-            WRITE (1,*) '53  I   Iodine      0.41764     491.0   4.930E+00'
-            WRITE (1,*) '54  Xe  Xenon       0.41130     482.0   5.485E-03'
-            WRITE (1,*) '55  Cs  Cesium      0.41383     488.0   1.873E+00'
-            WRITE (1,*) '56  Ba  Barium      0.40779     491.0   3.500E+00'
-            WRITE (1,*) '57  La  Lanthanum   0.41035     501.0   6.154E+00'
-            WRITE (1,*) '58  Ce  Cerium      0.41395     523.0   6.657E+00'
-            WRITE (1,*) '59  Pr  Praseodymium    0.41871     535.0   6.710E+00'
-            WRITE (1,*) '60  Nd  Neodymium   0.41597     546.0   6.900E+00'
-            WRITE (1,*) '61  Pm  Promethium  0.42094     560.0   7.220E+00'
-            WRITE (1,*) '62  Sm  Samarium    0.41234     574.0   7.460E+00'
-            WRITE (1,*) '63  Eu  Europium    0.41457     580.0   5.243E+00'
-            WRITE (1,*) '64  Gd  Gadolinium  0.40699     591.0   7.900E+00'
-            WRITE (1,*) '65  Tb  Terbium     0.40900     614.0   8.229E+00'
-            WRITE (1,*) '66  Dy  Dysprosium  0.40615     628.0   8.550E+00'
-            WRITE (1,*) '67  Ho  Holmium     0.40623     650.0   8.795E+00'
-            WRITE (1,*) '68  Er  Erbium      0.40655     658.0   9.066E+00'
-            WRITE (1,*) '69  Tm  Thulium     0.40844     674.0   9.321E+00'
-            WRITE (1,*) '70  Yb  Ytterbium   0.40453     684.0   6.730E+00'
-            WRITE (1,*) '71  Lu  Lutetium    0.40579     694.0   9.840E+00'
-            WRITE (1,*) '72  Hf  Hafnium     0.40338     705.0   1.331E+01'
-            WRITE (1,*) '73  Ta  Tantalum    0.40343     718.0   1.665E+01'
-            WRITE (1,*) '74  W   Tungsten    0.40250     727.0   1.930E+01'
-            WRITE (1,*) '75  Re  Rhenium     0.40278     736.0   2.102E+01'
-            WRITE (1,*) '76  Os  Osmium      0.39958     746.0   2.257E+01'
-            WRITE (1,*) '77  Ir  Iridium     0.40058     757.0   2.242E+01'
-            WRITE (1,*) '78  Pt  Platinum    0.39984     790.0   2.145E+01'
-            WRITE (1,*) '79  Au  Gold        0.40108     790.0   1.932E+01'
-            WRITE (1,*) '80  Hg  Mercury     0.39882     800.0   1.355E+01'
-            WRITE (1,*) '81  Tl  Thallium    0.39631     810.0   1.172E+01'
-            WRITE (1,*) '82  Pb  Lead        0.39575     823.0   1.135E+01'
-            WRITE (1,*) '83  Bi  Bismuth     0.39717     823.0   9.747E+00'
-            WRITE (1,*) '84  Po  Polonium    0.40195     830.0   9.320E+00'
-            WRITE (1,*) '85  At  Astatine    0.40479     825.0   1.000E+01'
-            WRITE (1,*) '86  Rn  Radon       0.38736     794.0   9.066E-03'
-            WRITE (1,*) '87  Fr  Francium    0.39010     827.0   1.000E+01'
-            WRITE (1,*) '88  Ra  Radium      0.38934     826.0   5.000E+00'
-            WRITE (1,*) '89  Ac  Actinium    0.39202     841.0   1.007E+01'
-            WRITE (1,*) '90  Th  Thorium     0.38787     847.0   1.172E+01'
-            WRITE (1,*) '91  Pa  Protactinium    0.39388     878.0   1.537E+01'
-            WRITE (1,*) '92  U   Uranium     0.38651     890.0   1.895E+01'
+            WRITE (1,*) '1   H   Hydrogen       0.99212     19.2    8.375E-05'
+            WRITE (1,*) '2   He  Helium         0.49968     41.8    1.663E-04'
+            WRITE (1,*) '3   Li  Lithium        0.43221     40.0    5.340E-01'
+            WRITE (1,*) '4   Be  Beryllium      0.44384     63.7    1.848E+00'
+            WRITE (1,*) '5   B   Boron          0.46245     76.0    2.370E+00'
+            WRITE (1,*) '6   C   Carbon         0.49954     78.0    1.700E+00'
+            WRITE (1,*) '7   N   Nitrogen       0.49976     82.0    1.165E-03'
+            WRITE (1,*) '8   O   Oxygen         0.50002     95.0    1.332E-03'
+            WRITE (1,*) '9   F   Fluorine       0.47372     115.0   1.580E-03'
+            WRITE (1,*) '10  Ne  Neon           0.49555     137.0   8.385E-04'
+            WRITE (1,*) '11  Na  Sodium         0.47847     149.0   9.710E-01'
+            WRITE (1,*) '12  Mg  Magnesium      0.49373     156.0   1.740E+00'
+            WRITE (1,*) '13  Al  Aluminum       0.48181     166.0   2.699E+00'
+            WRITE (1,*) '14  Si  Silicon        0.49848     173.0   2.330E+00'
+            WRITE (1,*) '15  P   Phosphorus     0.48428     173.0   2.200E+00'
+            WRITE (1,*) '16  S   Sulfur         0.49897     180.0   2.000E+00'
+            WRITE (1,*) '17  Cl  Chlorine       0.47951     174.0   2.995E-03'
+            WRITE (1,*) '18  Ar  Argon          0.45059     188.0   1.662E-03'
+            WRITE (1,*) '19  K   Potassium      0.48595     190.0   8.620E-01'
+            WRITE (1,*) '20  Ca  Calcium        0.49903     191.0   1.550E+00'
+            WRITE (1,*) '21  Sc  Scandium       0.46712     216.0   2.989E+00'
+            WRITE (1,*) '22  Ti  Titanium       0.45948     233.0   4.540E+00'
+            WRITE (1,*) '23  V   Vanadium       0.45150     245.0   6.110E+00'
+            WRITE (1,*) '24  Cr  Chromium       0.46157     257.0   7.180E+00'
+            WRITE (1,*) '25  Mn  Manganese      0.45506     272.0   7.440E+00'
+            WRITE (1,*) '26  Fe  Iron           0.46556     286.0   7.874E+00'
+            WRITE (1,*) '27  Co  Cobalt         0.45815     297.0   8.900E+00'
+            WRITE (1,*) '28  Ni  Nickel         0.47708     311.0   8.902E+00'
+            WRITE (1,*) '29  Cu  Copper         0.45636     322.0   8.960E+00'
+            WRITE (1,*) '30  Zn  Zinc           0.45879     330.0   7.133E+00'
+            WRITE (1,*) '31  Ga  Gallium        0.44462     334.0   5.904E+00'
+            WRITE (1,*) '32  Ge  Germanium      0.44071     350.0   5.323E+00'
+            WRITE (1,*) '33  As  Arsenic        0.44046     347.0   5.730E+00'
+            WRITE (1,*) '34  Se  Selenium       0.43060     348.0   4.500E+00'
+            WRITE (1,*) '35  Br  Bromine        0.43803     343.0   7.072E-03'
+            WRITE (1,*) '36  Kr  Krypton        0.42959     352.0   3.478E-03'
+            WRITE (1,*) '37  Rb  Rubidium       0.43291     363.0   1.532E+00'
+            WRITE (1,*) '38  Sr  Strontium      0.43369     366.0   2.540E+00'
+            WRITE (1,*) '39  Y   Yttrium        0.43867     379.0   4.469E+00'
+            WRITE (1,*) '40  Zr  Zirconium      0.43848     393.0   6.506E+00'
+            WRITE (1,*) '41  Nb  Niobium        0.44130     417.0   8.570E+00'
+            WRITE (1,*) '42  Mo  Molybdenum     0.43777     424.0   1.022E+01'
+            WRITE (1,*) '43  Tc  Technetium     0.43919     428.0   1.150E+01'
+            WRITE (1,*) '44  Ru  Ruthenium      0.43534     441.0   1.241E+01'
+            WRITE (1,*) '45  Rh  Rhodium        0.43729     449.0   1.241E+01'
+            WRITE (1,*) '46  Pd  Palladium      0.43225     470.0   1.202E+01'
+            WRITE (1,*) '47  Ag  Silver         0.43572     470.0   1.050E+01'
+            WRITE (1,*) '48  Cd  Cadmium        0.42700     469.0   8.650E+00'
+            WRITE (1,*) '49  In  Indium         0.42676     488.0   7.310E+00'
+            WRITE (1,*) '50  Sn  Tin            0.42120     488.0   7.310E+00'
+            WRITE (1,*) '51  Sb  Antimony       0.41889     487.0   6.691E+00'
+            WRITE (1,*) '52  Te  Tellurium      0.40752     485.0   6.240E+00'
+            WRITE (1,*) '53  I   Iodine         0.41764     491.0   4.930E+00'
+            WRITE (1,*) '54  Xe  Xenon          0.41130     482.0   5.485E-03'
+            WRITE (1,*) '55  Cs  Cesium         0.41383     488.0   1.873E+00'
+            WRITE (1,*) '56  Ba  Barium         0.40779     491.0   3.500E+00'
+            WRITE (1,*) '57  La  Lanthanum      0.41035     501.0   6.154E+00'
+            WRITE (1,*) '58  Ce  Cerium         0.41395     523.0   6.657E+00'
+            WRITE (1,*) '59  Pr  Praseodymium   0.41871     535.0   6.710E+00'
+            WRITE (1,*) '60  Nd  Neodymium      0.41597     546.0   6.900E+00'
+            WRITE (1,*) '61  Pm  Promethium     0.42094     560.0   7.220E+00'
+            WRITE (1,*) '62  Sm  Samarium       0.41234     574.0   7.460E+00'
+            WRITE (1,*) '63  Eu  Europium       0.41457     580.0   5.243E+00'
+            WRITE (1,*) '64  Gd  Gadolinium     0.40699     591.0   7.900E+00'
+            WRITE (1,*) '65  Tb  Terbium        0.40900     614.0   8.229E+00'
+            WRITE (1,*) '66  Dy  Dysprosium     0.40615     628.0   8.550E+00'
+            WRITE (1,*) '67  Ho  Holmium        0.40623     650.0   8.795E+00'
+            WRITE (1,*) '68  Er  Erbium         0.40655     658.0   9.066E+00'
+            WRITE (1,*) '69  Tm  Thulium        0.40844     674.0   9.321E+00'
+            WRITE (1,*) '70  Yb  Ytterbium      0.40453     684.0   6.730E+00'
+            WRITE (1,*) '71  Lu  Lutetium       0.40579     694.0   9.840E+00'
+            WRITE (1,*) '72  Hf  Hafnium        0.40338     705.0   1.331E+01'
+            WRITE (1,*) '73  Ta  Tantalum       0.40343     718.0   1.665E+01'
+            WRITE (1,*) '74  W   Tungsten       0.40250     727.0   1.930E+01'
+            WRITE (1,*) '75  Re  Rhenium        0.40278     736.0   2.102E+01'
+            WRITE (1,*) '76  Os  Osmium         0.39958     746.0   2.257E+01'
+            WRITE (1,*) '77  Ir  Iridium        0.40058     757.0   2.242E+01'
+            WRITE (1,*) '78  Pt  Platinum       0.39984     790.0   2.145E+01'
+            WRITE (1,*) '79  Au  Gold           0.40108     790.0   1.932E+01'
+            WRITE (1,*) '80  Hg  Mercury        0.39882     800.0   1.355E+01'
+            WRITE (1,*) '81  Tl  Thallium       0.39631     810.0   1.172E+01'
+            WRITE (1,*) '82  Pb  Lead           0.39575     823.0   1.135E+01'
+            WRITE (1,*) '83  Bi  Bismuth        0.39717     823.0   9.747E+00'
+            WRITE (1,*) '84  Po  Polonium       0.40195     830.0   9.320E+00'
+            WRITE (1,*) '85  At  Astatine       0.40479     825.0   1.000E+01'
+            WRITE (1,*) '86  Rn  Radon          0.38736     794.0   9.066E-03'
+            WRITE (1,*) '87  Fr  Francium       0.39010     827.0   1.000E+01'
+            WRITE (1,*) '88  Ra  Radium         0.38934     826.0   5.000E+00'
+            WRITE (1,*) '89  Ac  Actinium       0.39202     841.0   1.007E+01'
+            WRITE (1,*) '90  Th  Thorium        0.38787     847.0   1.172E+01'
+            WRITE (1,*) '91  Pa  Protactinium   0.39388     878.0   1.537E+01'
+            WRITE (1,*) '92  U   Uranium        0.38651     890.0   1.895E+01'
             CLOSE(1)
         ENDIF
 200     FORMAT(A16, I3, 2ES32.20E3, I3, ES32.20E3)
@@ -196,7 +196,7 @@ CONTAINS
 203     FORMAT(A16, ES32.20E3)
 204     FORMAT(A16, 4(I3, ES32.20E3))
     END SUBROUTINE INITCFG
-    !======================================================================================================
+
     SUBROUTINE READCFG()
         !#################################################################################
         !#THIS SUBROUTINE READS THE BASIC DATA FROM THE COMMANDLINE                      #
@@ -265,8 +265,10 @@ CONTAINS
         Z_WINDOW = 4
         D_WINDOW = 300.
         A_ST_POL = 90
-        A_ST_AZIM_IN = 45
-        A_ST_AZIM_OUT = 45
+        A_ST_INCID= 45
+        A_ST_TAKE_OFF = 45
+        A_SAM_INCID = 45
+        A_SAM_TAKE_OFF = 45
         SA_ST_IN = 1
         SA_ST_OUT = 1
 
@@ -283,8 +285,8 @@ CONTAINS
         A_INCID = DEG2RAD(A_INCID)
         A_TAKE_OFF = DEG2RAD(A_TAKE_OFF)
         A_ST_POL = DEG2RAD(A_ST_POL)
-        A_ST_AZIM_IN = DEG2RAD(A_ST_AZIM_IN)
-        A_ST_AZIM_OUT = DEG2RAD(A_ST_AZIM_OUT)
+        A_ST_INCID = DEG2RAD(A_ST_INCID)
+        A_ST_TAKE_OFF = DEG2RAD(A_ST_TAKE_OFF)
         !CALCULATING NUMBER OF STEPS IN CONTINUUM AND INTEGRATION
         NSTEP = INT((VTUBE-EMIN)*ESTEP**(-1))
         !PARSING COMPOUND STRINGS WITH COMPOUNDPARSER FROM XRAYLIB
@@ -436,7 +438,7 @@ CONTAINS
         REWIND(2)
         !DISPLAY MENU OF ST-CONFIGURATIONS AND ASKING FOR CHOICE
         DO CNT = 1, NUM
-            READ (2,202,END=9) STR_SECTARGET, STR_TYPE, A_ST_POL, A_ST_AZIM_IN, A_ST_AZIM_OUT,&
+            READ (2,202,END=9) STR_SECTARGET, STR_TYPE, A_ST_POL, A_ST_INCID, A_ST_TAKE_OFF,&
             SA_ST_IN, SA_ST_OUT
             WRITE (*,201) CNT, STR_SECTARGET
         END DO
@@ -455,22 +457,22 @@ CONTAINS
         WRITE (*,'(A,$)') "POLAR ANGLE (IN DEG) = "
         READ (*,*) A_ST_POL
         WRITE (*,'(A,$)') "AZIMUTHAL ANGLE ENTRY (IN DEG) = "
-        READ (*,*) A_ST_AZIM_IN
+        READ (*,*) A_ST_INCID
         WRITE (*,'(A,$)') "AZIMUTHAL ANGLE EXIT (IN DEG) = "
-        READ (*,*) A_ST_AZIM_OUT
+        READ (*,*) A_ST_TAKE_OFF
         WRITE (*,'(A,$)') "SOLID ANGLE ENTRY (IN SR) = "
         READ (*,*) SA_ST_IN
         WRITE (*,'(A,$)') "SOLID ANGLE EXIT (IN SR) = "
         READ (*,*) SA_ST_OUT
         !WRITE CONFIGURATION TO FILE 'sect.dat'
-        WRITE (2,202) STR_SECTARGET, STR_TYPE, A_ST_POL, A_ST_AZIM_IN, A_ST_AZIM_OUT,&
+        WRITE (2,202) STR_SECTARGET, STR_TYPE, A_ST_POL, A_ST_INCID, A_ST_TAKE_OFF,&
             SA_ST_IN, SA_ST_OUT
         GO TO 8
 10      REWIND(2)
         !IF CHOICE IS NOT 0, THEN REWIND FILE AND READ UNTIL CORRECT
         !CONFIGURATION HAS BEEN READ
         DO CNT = 1, CHOICE
-            READ (2,202,END=10) STR_SECTARGET, STR_TYPE, A_ST_POL, A_ST_AZIM_IN, A_ST_AZIM_OUT, SA_ST_IN,&
+            READ (2,202,END=10) STR_SECTARGET, STR_TYPE, A_ST_POL, A_ST_INCID, A_ST_TAKE_OFF, SA_ST_IN,&
                 SA_ST_OUT
         END DO
         CLOSE(2)
@@ -546,11 +548,15 @@ CONTAINS
 
         !CONVERTING ANGLES IN DEGREES TO ANGLES IN RADIAN
         A_INCID = 90.
+        A_SAM_INCID = 45
+        A_SAM_TAKE_OFF = 45
         A_INCID = DEG2RAD(A_INCID)
         A_TAKE_OFF = DEG2RAD(A_TAKE_OFF)
         A_ST_POL = DEG2RAD(A_ST_POL)
-        A_ST_AZIM_IN = DEG2RAD(A_ST_AZIM_IN)
-        A_ST_AZIM_OUT = DEG2RAD(A_ST_AZIM_OUT)
+        A_ST_INCID = DEG2RAD(A_ST_INCID)
+        A_ST_TAKE_OFF = DEG2RAD(A_ST_TAKE_OFF)
+        A_SAM_INCID = DEG2RAD(A_SAM_INCID)
+        A_SAM_TAKE_OFF = DEG2RAD(A_SAM_TAKE_OFF)
 
         !CALCULATING NUMBER OF STEPS IN CONTINUUM AND INTEGRATION
         NSTEP = INT((VTUBE-EMIN)*ESTEP**(-1))
@@ -590,8 +596,8 @@ CONTAINS
         WRITE (999,*)  D_WINDOW
         WRITE (999,*) STR_SECTARGET
         WRITE (999,*) A_ST_POL
-        WRITE (999,*) A_ST_AZIM_IN
-        WRITE (999,*) A_ST_AZIM_OUT
+        WRITE (999,*) A_ST_INCID
+        WRITE (999,*) A_ST_TAKE_OFF
         WRITE (999,*) SA_ST_IN
         WRITE (999,*) SA_ST_OUT
         WRITE (999,*) STR_FILTER
@@ -617,8 +623,8 @@ CONTAINS
         WRITE (6,'(1H#,A16,3H = , F32.4,1H#)')  'D_WINDOW', D_WINDOW
         WRITE (6,'(1H#,A16,3H = , A32,1H#)') 'STR_SECTARGET', TRIM(STR_SECTARGET)
         WRITE (6,'(1H#,A16,3H = , F32.4,1H#)') 'A_ST_POL', A_ST_POL
-        WRITE (6,'(1H#,A16,3H = , F32.4,1H#)') 'A_ST_AZIM_IN', A_ST_AZIM_IN
-        WRITE (6,'(1H#,A16,3H = , F32.4,1H#)') 'A_ST_AZIM_OUT', A_ST_AZIM_OUT
+        WRITE (6,'(1H#,A16,3H = , F32.4,1H#)') 'A_ST_INCID', A_ST_INCID
+        WRITE (6,'(1H#,A16,3H = , F32.4,1H#)') 'A_ST_TAKE_OFF', A_ST_TAKE_OFF
         WRITE (6,'(1H#,A16,3H = , F32.4,1H#)') 'SA_ST_IN', SA_ST_IN
         WRITE (6,'(1H#,A16,3H = , F32.4,1H#)') 'SA_ST_OUT', SA_ST_OUT
         WRITE (6,'(1H#,A16,3H = , A32,1H#)') 'STR_FILTER', TRIM(STR_FILTER)

@@ -14,8 +14,8 @@ MODULE XRLDATA
 CONTAINS
     FUNCTION CS_FLUOR_CHG(Z, N, E) RESULT(CS)
         !#################################################################################
-        !#PROVIDES A LOCAL INTERFACE TO CS_FLUORLINE_KISSEL_CASCADE WHICH CHECKS THAT THE#
-        !#ENERGY INPUT IS ABOVE THE FLUORESCENCE EDGE ENERGY.                            #
+        !#THIS FUNCTION CALCULATES THE X-RAY FLUORESCENCE PRODUCTION CROSS SECTION       #
+        !#FOR AN ELEMENT                                                                 #
         !#################################################################################
         !#INPUT:                                                                         #
         !#      -Z      (INT)       ATOMIC NUMBER                                        #
@@ -30,13 +30,14 @@ CONTAINS
 
         REAL(DP)    :: E_EDGE
 
-        E_EDGE = EdgeEnergy(Z, SHELL(N))
+        E_EDGE = EDGE_ENERGY(Z, N)
         IF (E.LT.E_EDGE) THEN
             CS = 0_WP
             RETURN
         ENDIF
         CALL SetErrorMessages(0)
-        CS = CS_Fluorline_Kissel_Cascade(Z, LINE(N), E)
+        !CS = CS_Fluorline_Kissel_Cascade(Z, LINE(N), E)
+        CS = TRANSPROB(Z,N)*FLUOR_YIELD(Z,N)*CS_PHOTO_CHG(Z, E)
         CALL SetErrorMessages(1)
         RETURN
     END FUNCTION CS_FLUOR_CHG
@@ -54,6 +55,10 @@ CONTAINS
         REAL(DP), INTENT(IN) :: E
         REAL(WP) :: MU
 
+        IF (E.LE.0) THEN
+            MU = 0_WP
+            RETURN
+        ENDIF
         MU= CS_TOTAL(Z, E)
         RETURN
     END FUNCTION
@@ -81,6 +86,7 @@ CONTAINS
             MAC_TMP = MAC_TMP + MAC(Z, E)*CP%MASSFRACTIONS(CNT)
         END DO
         MU = MAC_TMP
+        MAC_TMP = 0_WP
         RETURN
     END FUNCTION
 
@@ -106,10 +112,11 @@ CONTAINS
 
         DO CNT=1,CP%NELEMENTS
             CS_TMP = CS_TMP&
-                        + CS_FLUOR_CHG(CP%ELEMENTS(CNT), LINE(N), E)&
+                        + CS_FLUOR_CHG(CP%ELEMENTS(CNT), N, E)&
                             *CP%MASSFRACTIONS(CNT)
         END DO
         CS = CS_TMP
+        CS_TMP = 0_WP
         RETURN
     END FUNCTION
 
@@ -132,7 +139,11 @@ CONTAINS
         INTEGER, INTENT(IN)     :: Z
         REAL(WP) :: LW
 
-        LW = AtomicLevelWidth(Z, SHELL(N))
+        IF (Z.EQ.Z_ANODE) THEN
+            LW = AtomicLevelWidth(Z, SHELL(N))
+        ELSE
+            LW = 1
+        ENDIF
         TRANSPROB = RadRate(Z, LINE(N))*LW*1E3
         RETURN
     END FUNCTION TRANSPROB
@@ -151,6 +162,7 @@ CONTAINS
         !#THIS DATASET WAS OBTAINED FROM:                                                #
         !#  http://http://physics.nist.gov/PhysRefData/XrayMassCoef/tab1.html            #
         !#################################################################################
+        IMPLICIT NONE
         INTEGER     :: Z
         CHARACTER(LEN=2)    :: ELEMENT_SYM
         CHARACTER(LEN=9)    :: ELEMENT_NAME
@@ -172,6 +184,24 @@ CONTAINS
 999     RETURN
     END SUBROUTINE LOAD_NIST
 
+    FUNCTION CS_PHOTO_CHG(Z, E) RESULT(CS)
+        !#################################################################################
+        !#THIS FUNCTION PROVIDES AN INTERFACE TO THE XRAYLIB FUNCTION                    #
+        !#      EdgeEnergy(Z, N)                                                         #
+        !#################################################################################
+        !#INPUTS:                                                                        #
+        !#      -Z      (INT)   ATOMIC NUMBER                                            #
+        !#      -N      (INT)   SHELL SELECTOR                                           #
+        !#################################################################################
+        IMPLICIT NONE
+        INTEGER, INTENT(IN) :: Z
+        REAL(DP), INTENT(IN) :: E
+        REAL(WP) :: CS
+
+        CS = CS_Photo(Z, E)
+        RETURN
+    END FUNCTION CS_PHOTO_CHG
+
     FUNCTION EDGE_ENERGY(Z, N) RESULT(E)
         !#################################################################################
         !#THIS FUNCTION PROVIDES AN INTERFACE TO THE XRAYLIB FUNCTION                    #
@@ -181,6 +211,7 @@ CONTAINS
         !#      -Z      (INT)   ATOMIC NUMBER                                            #
         !#      -N      (INT)   SHELL SELECTOR                                           #
         !#################################################################################
+        IMPLICIT NONE
         INTEGER, INTENT(IN) :: Z
         INTEGER, INTENT(IN) :: N
         REAL(DP) :: E
@@ -198,6 +229,7 @@ CONTAINS
         !#      -Z      (INT)   ATOMIC NUMBER                                            #
         !#      -N      (INT)   SHELL SELECTOR                                           #
         !#################################################################################
+        IMPLICIT NONE
         INTEGER, INTENT(IN) :: Z
         INTEGER, INTENT(IN) :: N
         REAL(WP) :: W
@@ -215,6 +247,7 @@ CONTAINS
         !#      -Z      (INT)   ATOMIC NUMBER                                            #
         !#      -N      (INT)   LINE SELECTOR                                            #
         !#################################################################################
+        IMPLICIT NONE
         INTEGER, INTENT(IN) :: Z
         INTEGER, INTENT(IN) :: N
         REAL(DP) :: E
@@ -222,4 +255,67 @@ CONTAINS
         E = LineEnergy(Z, LINE(N))
         RETURN
     END FUNCTION LINE_ENERGY
+
+    FUNCTION DCS_R(E, A) RESULT(DCS)
+        !#################################################################################
+        !#THIS FUNCTION PROVIDES AN INTERFACE TO THE XRAYLIB FUNCTION                    #
+        !#      DCS_Rayls(Z, E, A)                                                       #
+        !#################################################################################
+        !#INPUTS:                                                                        #
+        !#      -Z      (INT)   ATOMIC NUMBER                       [-]                  #
+        !#      -E      (DBLE)  ENERGY                              [keV]                #
+        !#      -A      (WP)    SCATTERING POLAR ANGLE              [rad]                #
+        !#################################################################################
+        REAL(DP), INTENT(IN) :: E
+        REAL(WP), INTENT(IN) :: A
+        REAL(WP) :: DCS
+
+        REAL(WP) :: DCS_TMP = 0_WP
+
+        INTEGER :: CNT
+
+        DO CNT = 1, CP_ST%NELEMENTS
+            DCS_TMP = DCS_TMP + (DCS_Rayl(CP_ST%ELEMENTS(CNT), E, DBLE(A))&
+                        *CP_ST%MASSFRACTIONS(CNT))
+        END DO
+        DCS = DCS_TMP
+        DCS_TMP = 0_WP
+        RETURN
+    END FUNCTION DCS_R
+
+    FUNCTION DCS_C(E, A) RESULT(DCS)
+        !#################################################################################
+        !#THIS FUNCTION PROVIDES AN INTERFACE TO THE XRAYLIB FUNCTION                    #
+        !#      DCS_Compt(Z, E, A)                                                       #
+        !#################################################################################
+        !#INPUTS:                                                                        #
+        !#      -Z      (INT)   ATOMIC NUMBER                       [-]                  #
+        !#      -E      (DBLE)  ENERGY                              [keV]                #
+        !#      -A      (WP)    SCATTERING POLAR ANGLE              [rad]                #
+        !#################################################################################
+        REAL(DP), INTENT(IN) :: E
+        REAL(WP), INTENT(IN) :: A
+        REAL(WP) :: DCS
+
+        REAL(WP) :: DCS_TMP = 0_WP
+
+        INTEGER :: CNT
+
+        DO CNT = 1, CP_ST%NELEMENTS
+            DCS_TMP = DCS_TMP + (DCS_Compt(CP_ST%ELEMENTS(CNT), E, DBLE(A))&
+                        *CP_ST%MASSFRACTIONS(CNT))
+        END DO
+        DCS = DCS_TMP
+        DCS_TMP = 0_WP
+        RETURN
+    END FUNCTION DCS_C
+
+    FUNCTION COMPTON_ENERGY(E, A) RESULT(EI)
+        REAL(DP), INTENT(IN) :: E
+        REAL(WP), INTENT(IN) :: A
+        REAL(DP) :: EI
+
+        EI = ComptonEnergy(E, DBLE(A))
+        RETURN
+    END FUNCTION COMPTON_ENERGY
 END MODULE XRLDATA

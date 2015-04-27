@@ -5,9 +5,7 @@ PROGRAM STSPEC
     USE     :: XRLDATA
     USE     :: CFGDATA
     USE     :: ANODE
-    USE     :: CONSTANTS
     USE     :: SECCOMP
-    USE     :: CONVOLUTE
 
     IMPLICIT NONE
     INTEGER :: CNT, CNT2, N
@@ -47,6 +45,7 @@ PROGRAM STSPEC
     ENDIF
 
     CALL DISPCFG()
+    CALL LOAD_NIST()
 
     WRITE (6,*) 'INITIALIZING ENERGY VALUES'
     DO CNT = 1, NSTEP
@@ -103,14 +102,21 @@ PROGRAM STSPEC
     ALLOCATE(I_ST_CONT(NSTEP))
 
     DO CNT = 1, NSTEP
+        EI = 0_DP
         READ (100,200) EI
-        I_ST_CONT(CNT) = SECT_CONT(EI)
+        I_ST_CONT(CNT) = ST_SCAT_CONT(EI)
+!        IF (ISNAN(I_ST_CONT(CNT))) THEN
+!            WRITE (6,*) 'ERROR:', EI, I_ST_CONT(CNT)
+!        ENDIF
         WRITE (6,'(I10,1H/,I10,A1,$)',ADVANCE='NO'), CNT, NSTEP, CHAR(13)
     END DO
     REWIND(100)
     DO CNT= 1, SIZE(LINE)
         DO CNT2 = 1, CP_ST%NELEMENTS
-            I_ST_CHAR(CNT, CNT2) = SECT_CHAR(CNT, CP_ST%ELEMENTS(CNT2))
+            I_ST_CHAR(CNT, CNT2) = ST_CHAR(CP_ST%ELEMENTS(CNT2), CNT)
+!            IF (ISNAN(I_ST_CHAR(CNT, CNT2))) THEN
+!                WRITE (6,*) 'ERROR:', EI, I_ST_CHAR(CNT, CNT2)
+!            ENDIF
         END DO
         WRITE (6,'(I10,1H/,I10,A1,$)',ADVANCE='NO'), CNT, SIZE(LINE), CHAR(13)
     END DO
@@ -119,7 +125,7 @@ PROGRAM STSPEC
         READ (100,200) EI
         TMP = 0_QP
         I_CHAR = 0_QP
-        ITMP = 0_QP!I_ST_CONT(CNT)
+        ITMP = 0!I_ST_CONT(CNT)
         LABEL = ''
         DO N = 1, SIZE(LINE)
             WRITE (6,'(I10,1H/,I10,3H-->,I3,1H/,I3,A1,$)',ADVANCE='NO'), CNT, NSTEP, N, SIZE(LINE), CHAR(13)
@@ -127,14 +133,14 @@ PROGRAM STSPEC
             IF (EA.EQ.0) CYCLE
             IF (ISNAN(EA)) CYCLE
             IF (EA.GE.EI .AND. EA.LT.(EI+ESTEP)) THEN
-                !TMP = AN_SCAT_RAYL(N)
+                TMP = ST_SCAT_R(N)
                 ITMP = ITMP + TMP
                 TMP = 0_QP
-                LABEL = TRIM(LABEL)//'R'
+                LABEL = TRIM(LABEL)//'1'
             ENDIF
-            EC = ComptonEnergy(DBLE(EA), DBLE((PI/2)-A_ST_AZIM_OUT))
+            EC = ComptonEnergy(DBLE(EA), DBLE((PI/2)-A_ST_TAKE_OFF))
             IF (EC.GE.EI .AND. EC.LT.(EI+ESTEP)) THEN
-                !TMP = AN_SCAT_COMP(N)
+                TMP = ST_SCAT_C(N)
                 ITMP = ITMP + TMP
                 TMP = 0_QP
                 LABEL = TRIM(LABEL)//'C'
@@ -144,19 +150,17 @@ PROGRAM STSPEC
                 IF (EC.EQ.0) CYCLE
                 IF (EC.LT.EI) CYCLE
                 IF (EC.GE.EI .AND. EC.LT.(EI+ESTEP)) THEN
-                    !I_CHAR = SECT_CHAR(N, CP_ST%ELEMENTS(CNT2))
-                    !I_CHAR = I_ST_CHAR(N, CNT2)
+                    I_CHAR = I_ST_CHAR(N, CNT2)
                     ITMP = ITMP + I_CHAR
-                    I_CHAR = 0_QP
                     WRITE (NLABEL,'(I3)') N
                     NLABEL = TRIM(NLABEL)
-                    LABEL = TRIM(LABEL)//TRIM(NLABEL)
+                    !LABEL = TRIM(LABEL)//TRIM(NLABEL)
                 ENDIF
             END DO
         END DO
         WRITE (104,201) EI, ITMP, LABEL
         IF (ISNAN(ITMP)) THEN
-            WRITE (6,*) 'ERROR:', EI, EC, ITMP
+            WRITE (6,*) 'ERROR:', EI, ITMP
         ENDIF
     END DO
     WRITE (6,*) 'WRITING OUTPUT TO FILE'

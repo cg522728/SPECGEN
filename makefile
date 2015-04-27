@@ -6,15 +6,13 @@ _SOURCES =\
 	cfgdata\
 	xrldata\
 	math\
-	anode
-#	seccomp\
-#	micromatter\
-#	convolute
-_MAINS = tspec
-#	mmsens\
-#	tspec\
-#	stspec\
-#	deteff
+	anode\
+	seccomp\
+	micromatter
+_MAINS = \
+	tspec\
+	stspec\
+	mmsens
 _OBJECTS = $(_SOURCES:%=%.o)
 _EXEC = $(_MAINS)
 SDIR = src

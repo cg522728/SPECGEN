@@ -5,7 +5,6 @@ PROGRAM MMSENS
     USE     :: XRLDATA
     USE     :: CFGDATA
     USE     :: ANODE
-    USE     :: CONSTANTS
     USE     :: SECCOMP
     USE     :: MICROMATTER
 
@@ -14,12 +13,12 @@ PROGRAM MMSENS
     INTEGER :: CNT2
     INTEGER :: NELEMENT = 1
     CHARACTER(LEN=16)   :: ARG0
-    REAL(QP)    :: ISAM = 0_QP
-    REAL(QP)    :: ISAM1 = 0_QP
-    REAL(QP)    :: ISAM2 = 0_QP
-    REAL(QP)    :: ISAM3 = 0_QP
+    REAL(WP)    :: ISAM = 0_QP
+    REAL(WP)    :: ISAM1 = 0_QP
+    REAL(WP)    :: ISAM2 = 0_QP
+    REAL(WP)    :: ISAM3 = 0_QP
     REAL(DP)    :: EI = 0_DP
-    REAL(QP), DIMENSION(:,:), ALLOCATABLE :: I_CHAR
+    REAL(WP), DIMENSION(:,:), ALLOCATABLE :: I_CHAR
 
     OPEN(UNIT=121,FILE='OUTPUT_MM.DAT', ACCESS='APPEND', STATUS='REPLACE')
 
@@ -39,26 +38,27 @@ PROGRAM MMSENS
 
     CALL DEBUGCFG()
     CALL DISPCFG()
+    CALL LOAD_NIST()
 
     ALLOCATE(I_CHAR(CP_ST%NELEMENTS,SIZE(LINE)))
     I_CHAR = 0_QP
     DO CNT2 = 1, CP_ST%NELEMENTS
         DO CNT = 1, SIZE(LINE)
-            WRITE (6,'(1H[, A16, 2H]>,I4,1H/,I4)') 'MAIN', CNT, SIZE(LINE)
-            EI = LineEnergy(CP_ST%ELEMENTS(CNT2), LINE(CNT))
-            IF (EI.EQ.0) THEN
+            WRITE (6,'(1H[, A16, 2H]>,I4,1H/,I4,A1)',ADVANCE='NO') 'MAIN', CNT, SIZE(LINE), CHAR(13)
+            EI = LINE_ENERGY(CP_ST%ELEMENTS(CNT2), CNT)
+            IF (EI.EQ.0 .OR. EI.LT.EMIN) THEN
                 I_CHAR(CNT2,CNT) = 0_QP
             ELSE
-                I_CHAR(CNT2,CNT) = SECT_CHAR(CNT, CP_ST%ELEMENTS(CNT2))
+                I_CHAR(CNT2,CNT) = ST_CHAR(CP_ST%ELEMENTS(CNT2), CNT)
             ENDIF
         END DO
     END DO
     DO CNT2 = 1, 92!CP_SAM%NELEMENTS
         NELEMENT = CNT2!CP_SAM%ELEMENTS(CNT2)
-        DO CNT = 2, 2!1, SIZE(LINE)
+        DO CNT = 3, 3!1, SIZE(LINE)
             EI = LineEnergy(NELEMENT, LINE(CNT))
-            IF (EI.EQ. 0) CYCLE
-            IF (EI.LE. EMIN) CYCLE
+            IF (EI.EQ.0) CYCLE
+            IF (EI.LT.EMIN) CYCLE
             WRITE (6,'(I3,1H/,I3,A1,$)',ADVANCE='NO') CNT, SIZE(LINE), CHAR(13)
             ISAM1 = MM1(CNT, NELEMENT, I_CHAR)
             ISAM2 = MM2(CNT, NELEMENT)
@@ -67,13 +67,14 @@ PROGRAM MMSENS
             !WRITE (121,202) NELEMENT, CNT, EI, CONC, ISAM1
             !WRITE (121,201) NELEMENT, ISAM1/CONC
             WRITE (121,201) NELEMENT, ISAM1, ISAM2, ISAM3
-            write (6,'(1H[,A16,2H](,A3,1H), I32, 2ES32.20E3)') 'MAIN','OUT', CNT2, LineEnergy(NELEMENT, LINE(CNT)), isam1
+            write (6,'(1H[,A16,2H](,A3,1H), I32, 2ES32.20E3)') 'MAIN','OUT', CNT2, LINE_ENERGY(NELEMENT, CNT), isam1
             ISAM1 = 0_QP
             ISAM2 = 0_QP
             ISAM3 = 0_QP
             ISAM = 0_QP
         END DO
     END DO
+    CALL EXECUTE_COMMAND_LINE('./out.p')
 
 201 FORMAT(I4, 2X, 3ES32.20E4)
 202 FORMAT(I3, I3, ES32.20E3, 2X, 2ES32.20E4)
