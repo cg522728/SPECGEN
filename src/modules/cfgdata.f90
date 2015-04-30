@@ -4,9 +4,10 @@ MODULE CFGDATA
     IMPLICIT NONE
     PUBLIC
     REAL(DP)                     :: VTUBE
-    REAL(QP)                     :: ITUBE
-    REAL(DP)                     :: ESTEP, EMIN
-    REAL(QP)                     :: CONC
+    REAL(WP)                     :: ITUBE
+    REAL(DP)                     :: ESTEP
+    REAL(DP)                    :: EMIN
+    REAL(WP)                     :: CONC
     INTEGER                     :: NSTEP
     INTEGER                     :: Z_ANODE
     INTEGER                     :: Z_WINDOW
@@ -31,6 +32,7 @@ MODULE CFGDATA
     REAL(QP)                    :: D_DET_DL
     REAL(QP)                    :: D_DET_BODY
     INTEGER                    :: Z_DET_BODY
+    REAL(QP)                    :: ST_MASS
     CHARACTER(LEN=16)           :: STR_SECTARGET
     CHARACTER(LEN=16)           :: STR_SAMPLE
     CHARACTER(LEN=16)           :: STR_FILTER
@@ -218,6 +220,7 @@ CONTAINS
         CHARACTER(LEN=16)   :: ARG1, ARG2, ARG3, ARG4, ARG5, ARG6, ARG7
         CHARACTER(LEN=16)   :: ARG8, ARG9
         INTEGER     :: Z_SAMPLE
+        INTEGER     :: CNT
         REAL(16) :: PI
         PI = 2.D0*DASIN(1.D0)
 
@@ -293,6 +296,10 @@ CONTAINS
         CP_ST => COMPOUNDPARSER(ADJUSTL(STR_SECTARGET))
         STR_ANODE = AtomicNumberToSymbol(Z_ANODE)
         CP_AN => COMPOUNDPARSER(STR_ANODE)
+        ST_MASS = 0_WP
+        DO CNT = 1, CP_ST%NELEMENTS
+            ST_MASS = ST_MASS + ATOMICWEIGHT(CP_ST%ELEMENTS(CNT))
+        END DO
         READ (ARG6, '(I3)', ERR=10) Z_SAMPLE
         STR_SAMPLE = AtomicNumberToSymbol(Z_SAMPLE)
         CP_SAM => COMPOUNDPARSER(ADJUSTL(STR_SAMPLE))
@@ -568,6 +575,10 @@ CONTAINS
         CP_SAM => CompoundParser(STR_SAMPLE)
         STR_SECTARGET = ADJUSTL(STR_SECTARGET)
         CP_ST => CompoundParser(STR_SECTARGET)
+        ST_MASS = 0_WP
+        DO CNT = 1, CP_ST%NELEMENTS
+            ST_MASS = ST_MASS + ATOMICWEIGHT(CP_ST%ELEMENTS(CNT))
+        END DO
         RETURN
     END SUBROUTINE LOADCFG
     !======================================================================================================

@@ -6,20 +6,21 @@ CONTAINS
         IMPLICIT NONE
         !f2py INTEGER, PARAMETER ::  QP = selected_real_kind(8)
         !f2py INTEGER, PARAMETER ::  DP = selected_real_kind(8)
-        REAL(QP)                        :: INTEGRATE
-        REAL(QP)                        :: FUNC
+        !f2py INTEGER, PARAMETER ::  WP = selected_real_kind(8)
+        REAL(WP)                        :: INTEGRATE
         EXTERNAL                        :: FUNC
+        REAL(WP)                        :: FUNC
         REAL(DP), INTENT(IN)            :: XMIN
         REAL(DP), INTENT(IN)            :: XMAX
         INTEGER, INTENT(IN)             :: NSTEP
         INTEGER, INTENT(IN), OPTIONAL   :: Z
         INTEGER, INTENT(IN), OPTIONAL   :: N
-        REAL(QP)    :: FUNCVAL = 0_QP
-        REAL(QP)    :: TMP = 0_QP
-        REAL(QP)    :: FI = 0_QP
-        REAL(QP)    :: FF = 0_QP
-        REAL(DP)    :: XVAL = 0_DP
-        REAL(DP)    :: XSTEP = 0_DP
+        REAL(WP)    :: FUNCVAL
+        REAL(WP)    :: TMP
+        REAL(WP)    :: FI
+        REAL(WP)    :: FF
+        REAL(DP)    :: XVAL
+        REAL(DP)    :: XSTEP
         INTEGER     :: CNT
         LOGICAL     :: N_PRESENT = .FALSE.
         LOGICAL     :: Z_PRESENT = .FALSE.

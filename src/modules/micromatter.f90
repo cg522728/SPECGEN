@@ -8,126 +8,126 @@ MODULE MICROMATTER
     USE :: MATHCHG
     implicit none
 CONTAINS
-    FUNCTION MM1(N, NELEMENT, I_CHAR)
-        IMPLICIT NONE
-        REAL(QP) :: MM1
-        INTEGER, INTENT(IN) :: NELEMENT
+    FUNCTION MM_SENS(Z, N, I_ST_CHAR) RESULT(I)
+        INTEGER, INTENT(IN) :: Z
         INTEGER, INTENT(IN) :: N
-        REAL(QP), DIMENSION(:,:), INTENT(IN) :: I_CHAR
+        REAL(WP), DIMENSION(:,:), INTENT(IN) :: I_ST_CHAR
+        REAL(WP) :: I
 
-        REAL(QP) :: ITMP
-        REAL(QP) :: TMP
+        REAL(DP) :: E_SAM_CHAR
+        REAL(WP) :: TMP
 
-        INTEGER     :: CNT
-        INTEGER     :: CNT2
-        REAL(QP)    :: PI
-        REAL(QP)    :: INTEN
-        REAL(DP)    :: EI
-        REAL(WP)    :: CS
+        E_SAM_CHAR = LINE_ENERGY(Z, N)
 
+        TMP = I_X_ST_CHAR(Z, N, I_ST_CHAR)&
+            +0&!I_X_AN_SCAT_CHAR(Z, N)&
+            +0!I_X_AN_SCAT_CONT(Z ,N)
+        I  = TMP!*DETEFF(E_SAM_CHAR)
+        RETURN
+    END FUNCTION MM_SENS
 
-        TMP = 0_QP
-        ITMP = 0_QP
-        PI = 2.D0*DASIN(1.D0)
+    FUNCTION I_X_ST_CHAR(Z, N, I_ST_CHAR) RESULT (I)
+        INTEGER, INTENT(IN) :: Z
+        INTEGER, INTENT(IN) :: N
+        REAL(WP), DIMENSION(:,:), INTENT(IN) :: I_ST_CHAR
+        REAL(WP) :: I
+
+        REAL(DP) :: E_ST_CHAR
+        REAL(WP) :: TMP
+        REAL(WP) :: I_TMP
+
+        INTEGER :: CNT
+        INTEGER :: CNT2
 
         DO CNT2 = 1, CP_ST%NELEMENTS
             DO CNT = 1, SIZE(LINE)
-                WRITE (6,'(I4,1H/,I4,A1,$)',ADVANCE='NO') CNT, SIZE(LINE), CHAR(13)
-                INTEN = I_CHAR(CNT2,CNT)
-                EI = LINE_ENERGY(CP_ST%ELEMENTS(CNT2), CNT)
-                IF (EI.LE. 0) CYCLE
-                    CS = CS_FLUOR_CHG(NELEMENT, N, EI)
-                    TMP = TMP + (INTEN*CS)
+                E_ST_CHAR = LINE_ENERGY(CP_ST%ELEMENTS(CNT2), CNT)
+                IF (E_ST_CHAR.EQ.0) CYCLE
+                TMP = I_ST_CHAR(CNT2, CNT)&
+                        *CS_FLUOR_CHG(Z, N, E_ST_CHAR)
+                I_TMP = I_TMP + TMP
             END DO
-            ITMP = ITMP + TMP*CP_ST%massFractions(CNT2)
-            TMP = 0_WP
         END DO
-        MM1 = ITMP*((SA_ST_OUT*CONC)/(4*PI*SIN(A_ST_INCID)))
-        WRITE (6,'(1H[,A16,2H](,A3,1H),ES32.20E3)') 'MM1', 'OUT', MM1
-        ITMP = 0_WP
+        I = I_TMP
+        I_TMP = 0_WP
         RETURN
-    END FUNCTION
-    FUNCTION MM2(N, NELEMENT)
-        IMPLICIT NONE
-        REAL(QP) :: MM2
+    END FUNCTION I_X_ST_CHAR
+
+    FUNCTION I_X_AN_SCAT_CHAR(Z, N) RESULT(I)
+        INTEGER, INTENT(IN) :: Z
         INTEGER, INTENT(IN) :: N
-        INTEGER, INTENT(IN) :: NELEMENT
+        REAL(WP) :: I
+
+        REAL(DP) :: E_AN_CHAR
+        REAL(DP) :: E_AN_COMPT
+        REAL(WP) :: I_R
+        REAL(WP) :: I_C
+        REAL(WP) :: TMP
+        REAL(WP) :: I_TMP
 
         INTEGER :: CNT
-        REAL(QP) :: ITMP = 0_QP
-        REAL(QP) :: TMPR = 0_QP
-        REAL(QP)    :: TMPC = 0_QP
-        REAL(QP), DIMENSION(:), ALLOCATABLE :: TMP
-        REAL(DP) :: EI = 0_DP
-        REAL(QP) :: PI = 0_QP
-        REAL(DP)    :: EC = 0_DP
-
-        ALLOCATE(TMP(SIZE(LINE)))
-        TMP = 0._QP
-
-        PI = 2.D0*DASIN(1.D0)
 
         DO CNT = 1, SIZE(LINE)
-            WRITE (6,'(I4,1H/,I4,A1,$)',ADVANCE='NO') CNT, SIZE(LINE), CHAR(13)
-            TMPR = 0_QP
-            TMPC = 0_QP
-            EI = LINE_ENERGY(Z_ANODE, CNT)
-            IF (EI.LE. EDGE_ENERGY(NELEMENT, N).OR. EI.EQ. 0) CYCLE
-                TMPR = ST_SCAT_R(CNT)&
-                        *CS_FLUOR_CHG(NELEMENT, N, EI)
-                EC = COMPTON_ENERGY(EI, A_ST_TAKE_OFF)
-                IF (EC.LT.EDGE_ENERGY(NELEMENT, N) .OR. EC.EQ.0) THEN
-                    TMPC = 0_QP
-                ELSE
-                    TMPC = ST_SCAT_C(CNT)&
-                            *CS_FLUOR_CHG(NELEMENT, N, EC)
-                ENDIF
-            TMP(CNT) = TMPR + TMPC
-        END DO
-        ITMP = SUM(TMP)
-        MM2 = ITMP*((SA_ST_OUT*CONC)/(4*PI*SIN(A_ST_INCID)))
-        WRITE (6,'(1H[,A16,2H](,A3,1H),ES32.20E3)') 'MM2', 'OUT', MM2
-        DEALLOCATE(TMP)
-        RETURN
-    END FUNCTION
-    FUNCTION MM3(N, NELEMENT)
-        IMPLICIT NONE
-        REAL(QP)    :: MM3
-        INTEGER,    INTENT(IN)  :: N
-        INTEGER,    INTENT(IN)  :: NELEMENT
-        REAL(DP)    :: E_ST_EDGE = 0_DP
-        REAL(DP)    :: ETUBE = 0_DP
-        REAL(QP)    :: PI = 0_QP
-        REAL(QP)    :: TMP = 0_QP
+            E_AN_CHAR = LINE_ENERGY(Z_ANODE, CNT)
+            IF (E_AN_CHAR.EQ.0) CYCLE
+            E_AN_COMPT = COMPTON_ENERGY(E_AN_CHAR, A_ST_POL)
 
-        PI = 2.D0*DASIN(1.D0)
-        ETUBE = VTUBE
-        E_ST_EDGE = EDGE_ENERGY(NELEMENT, N)
-        TMP = INTEGRATE(DERIV_MM3, E_ST_EDGE, ETUBE, INT(10), NELEMENT, N)
-        MM3 = TMP*((SA_ST_IN*CONC)/(4*PI*SIN(A_ST_INCID)))
-        WRITE (6,'(1H[,A16,2H](,A3,1H),ES32.20E3)') 'MM3', 'OUT', MM3
+            I_R = ST_SCAT_R(CNT)*CS_FLUOR_CHG(Z, N, E_AN_CHAR)
+            I_C = ST_SCAT_C(CNT)*CS_FLUOR_CHG(Z, N, E_AN_COMPT)
+            TMP = I_R + I_C
+            I_TMP = I_TMP + TMP
+        END DO
+        I = I_TMP
         RETURN
-    END FUNCTION
-    FUNCTION DERIV_MM3(EI, Z, N)
-        implicit none
-        REAL(QP)    :: DERIV_MM3
-        REAL(DP),   INTENT(IN)     :: EI
-        INTEGER,    INTENT(IN)     :: Z
-        INTEGER,    INTENT(IN)     :: N
-        DERIV_MM3 = ST_SCAT_CONT(EI)&
-                *CS_FLUOR_CHG(Z, N, EI)
-    END FUNCTION DERIV_MM3
+    END FUNCTION I_X_AN_SCAT_CHAR
+
+    FUNCTION I_X_AN_SCAT_CONT(Z ,N) RESULT(I)
+        INTEGER, INTENT(IN) :: Z
+        INTEGER, INTENT(IN) :: N
+        REAL(WP) :: I
+
+        REAL(DP) :: E_SAM_EDGE
+
+        E_SAM_EDGE = EDGE_ENERGY(Z, N)
+
+        I = INTEGRATE(DERIV_I_X_AN_SCAT_CONT, E_SAM_EDGE, VTUBE, INT(100), Z, N)
+        RETURN
+    END FUNCTION I_X_AN_SCAT_CONT
+
+    FUNCTION DERIV_I_X_AN_SCAT_CONT(E, Z, N) RESULT(I)
+        REAL(DP), INTENT(IN) :: E
+        INTEGER, INTENT(IN) :: Z
+        INTEGER, INTENT(IN) :: N
+        REAL(WP) :: I
+
+        I = ST_SCAT_CONT(E)*CS_FLUOR_CHG(Z, N, E)
+        RETURN
+    END FUNCTION DERIV_I_X_AN_SCAT_CONT
 
     FUNCTION DETEFF(EI)
         REAL(WP)   :: DETEFF
         REAL(DP), INTENT(IN)    :: EI
+
+        REAL(DP)    :: EC
+        REAL(WP)    :: F_PE
+        REAL(WP)    :: CON1
+        REAL(WP)    :: CON2
+        REAL(WP)    :: ETA
         REAL(WP)    :: K1
         REAL(WP)    :: K2
-        K1 = MAC(Z_DET_WINDOW, EI)*D_DET_WINDOW*1E-4&
-            +MAC(Z_DET_DL, EI)*D_DET_DL*1E-4&
-            +MAC(Z_DET_GAP, EI)*D_DET_GAP*1E-4
-        K2 = MAC(Z_DET_BODY, EI)*D_DET_BODY*1E-4
-        DETEFF = EXP(-K1)*(1-EXP(-K2))
+
+        CON1 = CS_PHOTO_CHG(Z_DET_BODY, EI)/MAC(Z_DET_BODY, EI)
+        EC = LINE_ENERGY(Z_DET_BODY, 3)
+        CON2 = MAC(Z_DET_BODY, EC)/MAC(Z_DET_BODY, EI)
+        ETA = 1-(0.5_WP*FLUOR_YIELD(Z_DET_BODY, 3)&
+                *CON1&
+                *(1-CON2*LOG(1+(1/CON2))))
+
+        K1 = EXP(-(CS_PHOTO_CHG(Z_DET_WINDOW, EI)*D_DET_WINDOW*1E-4&
+            +CS_PHOTO_CHG(Z_DET_DL, EI)*D_DET_DL*1E-4&
+            +CS_PHOTO_CHG(Z_DET_GAP, EI)*D_DET_GAP*1E-4))
+        K2 = 1-EXP(-MAC(Z_DET_BODY, EI)*(D_DET_BODY*1E-4))
+        DETEFF = CON1*ETA*K1*K2
         RETURN
     END FUNCTION
 END MODULE

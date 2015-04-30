@@ -1,5 +1,5 @@
 import unittest
-import mathchg
+import integrate as mintegrate
 import random
 XDOMAIN = (0.0,100.0)
 NDOMAIN = (1,1000)
@@ -37,7 +37,7 @@ def build_testcase(n):
     def make_test_method(test_point):
         def a_test(self):
             result_i = integrate(*test_point)
-            result_f = mathchg.mathchg.integrate(square, *test_point)
+            result_f = mintegrate.mathchg.integrate(square, *test_point)
             self.assertAlmostEqual(result_f,result_i)
         return a_test
     count = 0

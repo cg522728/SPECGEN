@@ -1,5 +1,5 @@
 CC = gfortran
-CFLAGS = -funderscoring -fdump-tree-original-raw -O0 -g3 -pg -p -Wall -fopenmp -fmessage-length=0 -cpp
+CFLAGS = -funderscoring -O0 -g3 -pg -p -Wall -fopenmp -fmessage-length=0 -cpp
 LIBS = -lxrlf03 -lxrl -lgomp
 _SOURCES =\
 	types\
@@ -12,7 +12,8 @@ _SOURCES =\
 _MAINS = \
 	tspec\
 	stspec\
-	mmsens
+	mmsens\
+	deteff
 _OBJECTS = $(_SOURCES:%=%.o)
 _EXEC = $(_MAINS)
 SDIR = src
@@ -42,7 +43,7 @@ $(_SOURCES): xraylib.o
 		$(CC) $(CFLAGS) -c $(patsubst %,$(MODDIR:%=$(SDIR)/%)/%,$@).f90 -o $(patsubst %,$(MODDIR:%=$(WDIR)/%)/%,$@).o -J $(MODDIR:%=$(WDIR)/%) $(LIBS)
 		
 xraylib.o:
-	$(CC) -funderscoring -O0 -g3 -pg -p -fopenmp -fmessage-length=0 -cpp -L/usr/lib64 -c $(SDIR)/$(MODDIR)/xraylib.f90 -o $(WDIR)/$(MODDIR)/xraylib.o -J $(MODDIR:%=$(WDIR)/%) $(LIBS)
+	$(CC) -funderscoring -O0 -g3 -pg -p -fopenmp -fmessage-length=0 -cpp -L/usr/lib64 -c $(SDIR)/$(MODDIR)/xraylib.F90 -o $(WDIR)/$(MODDIR)/xraylib.o -J $(MODDIR:%=$(WDIR)/%) $(LIBS)
 clean:
 	rm -fr modules/*.o
 	rm -fr *.mod

@@ -3,9 +3,11 @@ MODULE XRLDATA
     USE :: TYPES
     USE :: CFGDATA
     implicit none
-    INTEGER, DIMENSION(111)   :: SHELL
-    INTEGER, DIMENSION(111)   :: TOSHELL
-    INTEGER, DIMENSION(111)   :: LINE
+        !f2py INTEGER, PARAMETER ::  QP = selected_real_kind(8)
+        !f2py INTEGER, PARAMETER ::  DP = selected_real_kind(8)
+        !f2py INTEGER, PARAMETER ::  WP = selected_real_kind(8)
+    INTEGER, DIMENSION(383)   :: SHELL
+    INTEGER, DIMENSION(383)   :: LINE
     REAL(QP), DIMENSION(92)   :: NIST_ZA_RATIO
     REAL(WP), DIMENSION(92)   :: NIST_ION_POT
     REAL(QP), DIMENSION(92)   :: NIST_DENSITY
@@ -37,7 +39,10 @@ CONTAINS
         ENDIF
         CALL SetErrorMessages(0)
         !CS = CS_Fluorline_Kissel_Cascade(Z, LINE(N), E)
-        CS = TRANSPROB(Z,N)*FLUOR_YIELD(Z,N)*CS_PHOTO_CHG(Z, E)
+        CS = RAD_RATE(Z,N)*FLUOR_YIELD(Z,N)*CS_PHOTO_PARTIAL_CHG(Z, N, E)
+        !CS = TRANSPROB(Z,N)*(1E-3)*FLUOR_YIELD(Z,N)*CS_PHOTO_PARTIAL_CHG(Z, N, E)!CS_PHOTO_CHG(Z, E)
+        !CS = RAD_RATE(Z,N)*FLUOR_YIELD(Z,N)*CS_PHOTO_CHG(Z, E)
+        !CS = TRANSPROB(Z,N)*FLUOR_YIELD(Z,N)*CS_PHOTO_PARTIAL_CHG(Z, N, E)!CS_PHOTO_CHG(Z, E)
         CALL SetErrorMessages(1)
         RETURN
     END FUNCTION CS_FLUOR_CHG
@@ -51,6 +56,9 @@ CONTAINS
         !#      -E      (DBLE)  ENERGY                                                   #
         !#################################################################################
         IMPLICIT NONE
+        !f2py INTEGER, PARAMETER ::  QP = selected_real_kind(8)
+        !f2py INTEGER, PARAMETER ::  DP = selected_real_kind(8)
+        !f2py INTEGER, PARAMETER ::  WP = selected_real_kind(8)
         INTEGER, INTENT(IN) :: Z
         REAL(DP), INTENT(IN) :: E
         REAL(WP) :: MU
@@ -139,14 +147,15 @@ CONTAINS
         INTEGER, INTENT(IN)     :: Z
         REAL(WP) :: LW
 
-        IF (Z.EQ.Z_ANODE) THEN
-            LW = AtomicLevelWidth(Z, SHELL(N))
+        IF (SHELL(N).LE.N5_SHELL) THEN
+            LW = AtomicLevelWidth(Z, SHELL(N))*1E3
         ELSE
-            LW = 1
+            LW = 0
         ENDIF
-        TRANSPROB = RadRate(Z, LINE(N))*LW*1E3
+        TRANSPROB = RadRate(Z, LINE(N))*LW
         RETURN
     END FUNCTION TRANSPROB
+
     SUBROUTINE LOAD_NIST()
         !#################################################################################
         !#THIS SUBROUTINE LOADS THE FOLLOWING ELEMENTAL DATA FROM A FILE:                #
@@ -174,6 +183,8 @@ CONTAINS
         NIST_ION_POT = 0_WP
         NIST_DENSITY = 0_QP
 
+        CALL INITCFG()
+
         OPEN(UNIT=1,FILE='nist.dat')
         DO
             READ (1,*,END=999) Z, ELEMENT_SYM, ELEMENT_NAME, ZA_RATIO, I, DENSITY
@@ -181,8 +192,36 @@ CONTAINS
                 NIST_ION_POT(Z) = I*(1E-3)
                 NIST_DENSITY(Z) = DENSITY
         END DO
-999     RETURN
+999     CLOSE(1)
+        RETURN
     END SUBROUTINE LOAD_NIST
+
+    FUNCTION ZA_RATIO(Z) RESULT(X)
+        INTEGER, INTENT(IN) :: Z
+        REAL(WP) :: X
+        IF (NIST_ZA_RATIO(Z).EQ.0) CALL LOAD_NIST()
+        X = NIST_ZA_RATIO(Z)
+        !f2py X = Z/AtomicWeight(Z)
+        RETURN
+    END FUNCTION ZA_RATIO
+
+    FUNCTION ION_POT(Z) RESULT(X)
+        INTEGER, INTENT(IN) :: Z
+        REAL(WP) :: X
+        IF (NIST_ION_POT(Z).EQ.0) CALL LOAD_NIST()
+        X = NIST_ION_POT(Z)
+        !f2py X = 0.0135*Z
+        RETURN
+    END FUNCTION ION_POT
+
+    FUNCTION DENSITY(Z) RESULT(X)
+        INTEGER, INTENT(IN) :: Z
+        REAL(WP) :: X
+        IF (NIST_DENSITY(Z).EQ.0) CALL LOAD_NIST()
+        X = NIST_DENSITY(Z)
+        !f2py X = AtomicDensity(Z)
+        RETURN
+    END FUNCTION DENSITY
 
     FUNCTION CS_PHOTO_CHG(Z, E) RESULT(CS)
         !#################################################################################
@@ -201,6 +240,35 @@ CONTAINS
         CS = CS_Photo(Z, E)
         RETURN
     END FUNCTION CS_PHOTO_CHG
+
+    FUNCTION CS_PHOTO_CP_CHG(CP, E) RESULT(CS)
+        !#################################################################################
+        !#THIS FUNCTION CALCULATES THE X-RAY FLUORESCENCE PRODUCTION CROSS SECTION       #
+        !#FOR A COMPOUND                                                                 #
+        !#################################################################################
+        !#INPUTS:                                                                        #
+        !#      -CP     (STRUC) XRAYLIB COMPOUND DATA                                    #
+        !#      -N      SHELL SELECTOR                                                   #
+        !#      -E      (DBLE)  ENERGY                                                   #
+        !#################################################################################
+        IMPLICIT NONE
+        TYPE(CompoundData), POINTER, INTENT(IN) :: CP
+        REAL(DP), INTENT(IN) :: E
+        REAL(WP) :: CS
+
+        REAL(WP) :: CS_TMP = 0_WP
+
+        INTEGER :: CNT
+
+        DO CNT=1,CP%NELEMENTS
+            CS_TMP = CS_TMP&
+                        + CS_PHOTO_CHG(CP%ELEMENTS(CNT), E)&
+                            *CP%MASSFRACTIONS(CNT)
+        END DO
+        CS = CS_TMP
+        CS_TMP = 0_WP
+        RETURN
+    END FUNCTION CS_PHOTO_CP_CHG
 
     FUNCTION EDGE_ENERGY(Z, N) RESULT(E)
         !#################################################################################
@@ -318,4 +386,62 @@ CONTAINS
         EI = ComptonEnergy(E, DBLE(A))
         RETURN
     END FUNCTION COMPTON_ENERGY
+
+    FUNCTION RAD_RATE(Z, N) RESULT(R)
+        INTEGER, INTENT(IN) :: Z
+        INTEGER, INTENT(IN) :: N
+        REAL(DP) :: R
+
+        R = RadRate(Z, LINE(N))
+        RETURN
+    END FUNCTION RAD_RATE
+
+    FUNCTION CS_PHOTO_PARTIAL_CHG(Z, N, E) RESULT(CS)
+        !#################################################################################
+        !#THIS FUNCTION PROVIDES AN INTERFACE TO THE XRAYLIB FUNCTION                    #
+        !#      EdgeEnergy(Z, N)                                                         #
+        !#################################################################################
+        !#INPUTS:                                                                        #
+        !#      -Z      (INT)   ATOMIC NUMBER                                            #
+        !#      -N      (INT)   SHELL SELECTOR                                           #
+        !#################################################################################
+        IMPLICIT NONE
+        INTEGER, INTENT(IN) :: Z
+        INTEGER, INTENT(IN) :: N
+        REAL(DP), INTENT(IN) :: E
+        REAL(WP) :: CS
+
+        CS = CS_Photo_Partial(Z, SHELL(N), E)
+        RETURN
+    END FUNCTION CS_PHOTO_PARTIAL_CHG
+
+    FUNCTION CS_PHOTO_PARTIAL_CP_CHG(CP, N, E) RESULT(CS)
+        !#################################################################################
+        !#THIS FUNCTION CALCULATES THE X-RAY FLUORESCENCE PRODUCTION CROSS SECTION       #
+        !#FOR A COMPOUND                                                                 #
+        !#################################################################################
+        !#INPUTS:                                                                        #
+        !#      -CP     (STRUC) XRAYLIB COMPOUND DATA                                    #
+        !#      -N      SHELL SELECTOR                                                   #
+        !#      -E      (DBLE)  ENERGY                                                   #
+        !#################################################################################
+        IMPLICIT NONE
+        TYPE(CompoundData), POINTER, INTENT(IN) :: CP
+        INTEGER, INTENT(IN) :: N
+        REAL(DP), INTENT(IN) :: E
+        REAL(WP) :: CS
+
+        REAL(WP) :: CS_TMP = 0_WP
+
+        INTEGER :: CNT
+
+        DO CNT=1,CP%NELEMENTS
+            CS_TMP = CS_TMP&
+                        + CS_PHOTO_PARTIAL_CHG(CP%ELEMENTS(CNT), N, E)&
+                            *CP%MASSFRACTIONS(CNT)
+        END DO
+        CS = CS_TMP
+        CS_TMP = 0_WP
+        RETURN
+    END FUNCTION CS_PHOTO_PARTIAL_CP_CHG
 END MODULE XRLDATA

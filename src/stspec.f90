@@ -125,7 +125,7 @@ PROGRAM STSPEC
         READ (100,200) EI
         TMP = 0_QP
         I_CHAR = 0_QP
-        ITMP = 0!I_ST_CONT(CNT)
+        ITMP = I_ST_CONT(CNT)
         LABEL = ''
         DO N = 1, SIZE(LINE)
             WRITE (6,'(I10,1H/,I10,3H-->,I3,1H/,I3,A1,$)',ADVANCE='NO'), CNT, NSTEP, N, SIZE(LINE), CHAR(13)

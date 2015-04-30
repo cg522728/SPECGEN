@@ -84,16 +84,7 @@ PROGRAM TSPEC
     WRITE (6,*) 'CALCULATING TUBE SPECTRUM'
     DO CNT = 1, NSTEP
         READ (100,200) EI
-        ITMP = ANODE_CONT(Z_ANODE, EI)
-        DO N = 1, SIZE(LINE)
-            WRITE (6,'(I9,1H/,I9,3H-->,I9,1H/,I9,A1,$)',ADVANCE='NO'), CNT, NSTEP, N, SIZE(LINE), CHAR(13)
-            EA = LineEnergy(Z_ANODE, LINE(N))
-            IF (EA.EQ.0 .OR. EA.LT.EMIN) CYCLE
-            IF (EA.GE.EI .AND. EA.LT.(EI+ESTEP)) THEN
-                ITMP = ITMP + ANODE_CHAR(Z_ANODE, N)
-            ENDIF
-        END DO
-        ITMP = ITMP*TUBE_ATTEN(EI, Z_WINDOW, D_WINDOW)*FILTER_ATTEN(EI, Z_FILTER, D_FILTER)
+        ITMP = ANODE_INT(Z_ANODE, EI, VTUBE, ITUBE, A_TAKE_OFF)
         WRITE (103,201) EI, ITMP
         IF (ISNAN(ITMP)) THEN
             WRITE (6,*) 'ERROR:', EI, ITMP

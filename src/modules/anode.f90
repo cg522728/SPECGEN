@@ -5,9 +5,41 @@ MODULE ANODE
     USE :: CFGDATA
     USE :: MATHCHG
     IMPLICIT NONE
-    PRIVATE
-    PUBLIC ANODE_CONT, ANODE_CHAR, TUBE_ATTEN, FILTER_ATTEN
+    !PRIVATE
+    !PUBLIC ANODE_CONT, ANODE_CHAR, TUBE_ATTEN, FILTER_ATTEN, DERIV_CONT
 CONTAINS
+    FUNCTION ANODE_INT(Z, E, V, I, A_TO) RESULT(ITMP)
+        IMPLICIT NONE
+        !f2py INTEGER, PARAMETER ::  QP = selected_real_kind(8)
+        !f2py INTEGER, PARAMETER ::  DP = selected_real_kind(8)
+        !f2py INTEGER, PARAMETER ::  WP = selected_real_kind(8)
+        INTEGER, INTENT(IN) :: Z
+        REAL(DP), INTENT(IN) :: E
+        REAL(DP), INTENT(IN) :: V
+        REAL(WP), INTENT(IN) :: I
+        REAL(WP), INTENT(IN) :: A_TO
+        REAL(WP) :: ITMP
+
+        REAL(DP) :: EA
+
+        INTEGER :: N
+
+        VTUBE = V
+        ITUBE = I
+        A_TAKE_OFF = DEG2RAD(A_TO)
+
+        ITMP = ANODE_CONT(Z_ANODE, E)
+        DO N = 1, SIZE(LINE)
+            EA = LINE_ENERGY(Z_ANODE, N)
+            IF (EA.EQ.0 .OR. EA.LT.EMIN) CYCLE
+            IF ((EA.GE.(E-(ESTEP/2))) .AND. EA.LE.(E+(ESTEP/2))) THEN
+                ITMP = ITMP + ANODE_CHAR(Z_ANODE, N)
+            ENDIF
+        END DO
+        ITMP = ITMP*TUBE_ATTEN(E, Z_WINDOW, D_WINDOW)*FILTER_ATTEN(E, Z_FILTER, D_FILTER)
+        RETURN
+    END FUNCTION ANODE_INT
+
     FUNCTION ANODE_CHAR(Z, N) RESULT(N_CHAR)
         !#################################################################################
         !#THIS FUNCTION CALCULATES THE NUMBER OF COUNTS FOR A CHARACTERISTIC LINE        #
@@ -19,6 +51,9 @@ CONTAINS
         !#      -N      (INT)       LINE SELECTOR                   [-]                  #
         !#################################################################################
         IMPLICIT NONE
+        !f2py INTEGER, PARAMETER ::  QP = selected_real_kind(8)
+        !f2py INTEGER, PARAMETER ::  DP = selected_real_kind(8)
+        !f2py INTEGER, PARAMETER ::  WP = selected_real_kind(8)
         INTEGER, INTENT(IN) :: Z
         INTEGER, INTENT(IN) :: N
         REAL(WP) :: N_CHAR
@@ -65,6 +100,9 @@ CONTAINS
         !#      -E      (DBLE)      ENERGY                          [keV]                #
         !#################################################################################
         IMPLICIT NONE
+        !f2py INTEGER, PARAMETER ::  QP = selected_real_kind(8)
+        !f2py INTEGER, PARAMETER ::  DP = selected_real_kind(8)
+        !f2py INTEGER, PARAMETER ::  WP = selected_real_kind(8)
         INTEGER, INTENT(IN) :: Z
         REAL(DP), INTENT(IN) :: E
         REAL(WP) :: N_CONT
@@ -100,6 +138,9 @@ CONTAINS
         !#      -Z      (INT)       ATOMIC NUMBER                   [-]                  #
         !#################################################################################
         IMPLICIT NONE
+        !f2py INTEGER, PARAMETER ::  QP = selected_real_kind(8)
+        !f2py INTEGER, PARAMETER ::  DP = selected_real_kind(8)
+        !f2py INTEGER, PARAMETER ::  WP = selected_real_kind(8)
         INTEGER, INTENT(IN) :: Z
         REAL(DP), INTENT(IN) :: E
         REAL(WP) :: N_CONT
@@ -132,6 +173,9 @@ CONTAINS
         !#      -Z     (INT)    ATOMIC NUMBER                       [-]                  #
         !#################################################################################
         IMPLICIT NONE
+        !f2py INTEGER, PARAMETER ::  QP = selected_real_kind(8)
+        !f2py INTEGER, PARAMETER ::  DP = selected_real_kind(8)
+        !f2py INTEGER, PARAMETER ::  WP = selected_real_kind(8)
         INTEGER, INTENT(IN) :: Z
         REAL(WP) :: G
 
@@ -157,6 +201,9 @@ CONTAINS
         !#      -Z     (INT)    ATOMIC NUMBER                       [-]                  #
         !#################################################################################
         IMPLICIT NONE
+        !f2py INTEGER, PARAMETER ::  QP = selected_real_kind(8)
+        !f2py INTEGER, PARAMETER ::  DP = selected_real_kind(8)
+        !f2py INTEGER, PARAMETER ::  WP = selected_real_kind(8)
         INTEGER, INTENT(IN) :: Z
         REAL(WP) :: I
 
@@ -183,6 +230,9 @@ CONTAINS
         !#      -Z     (INT)    ATOMIC NUMBER                       [-]                  #
         !#################################################################################
         IMPLICIT NONE
+        !f2py INTEGER, PARAMETER ::  QP = selected_real_kind(8)
+        !f2py INTEGER, PARAMETER ::  DP = selected_real_kind(8)
+        !f2py INTEGER, PARAMETER ::  WP = selected_real_kind(8)
         INTEGER, INTENT(IN) :: Z
         REAL(WP) :: ETA
 
@@ -209,6 +259,9 @@ CONTAINS
         !#      -Z     (INT)    ATOMIC NUMBER                       [-]                  #
         !#################################################################################
         IMPLICIT NONE
+        !f2py INTEGER, PARAMETER ::  QP = selected_real_kind(8)
+        !f2py INTEGER, PARAMETER ::  DP = selected_real_kind(8)
+        !f2py INTEGER, PARAMETER ::  WP = selected_real_kind(8)
         INTEGER, INTENT(IN) :: Z
         REAL(WP) :: RSM
 
@@ -219,8 +272,8 @@ CONTAINS
 
         DATA CON/0.773E-5, 0.735E-6/
 
-        IONPOT = NIST_ION_POT(Z)
-        ZARATIO = NIST_ZA_RATIO(Z)
+        IONPOT = ION_POT(Z)
+        ZARATIO = ZA_RATIO(Z)
 
         RSM = (CON(1)*SQRT(IONPOT*VTUBE)&
                     *VTUBE&
@@ -242,6 +295,9 @@ CONTAINS
         !#      -Z     (INT)    ATOMIC NUMBER                       [-]                  #
         !#################################################################################
         IMPLICIT NONE
+        !f2py INTEGER, PARAMETER ::  QP = selected_real_kind(8)
+        !f2py INTEGER, PARAMETER ::  DP = selected_real_kind(8)
+        !f2py INTEGER, PARAMETER ::  WP = selected_real_kind(8)
         REAL(DP), INTENT(IN) :: E
         INTEGER, INTENT(IN) :: Z
         REAL(WP) :: RS
@@ -289,6 +345,9 @@ CONTAINS
         !#      -Z     (INT)    ATOMIC NUMBER                       [-]                  #
         !#################################################################################
         IMPLICIT NONE
+        !f2py INTEGER, PARAMETER ::  QP = selected_real_kind(8)
+        !f2py INTEGER, PARAMETER ::  DP = selected_real_kind(8)
+        !f2py INTEGER, PARAMETER ::  WP = selected_real_kind(8)
         REAL(DP), INTENT(IN) :: E
         INTEGER, INTENT(IN) :: Z
         REAL(WP) :: F
@@ -318,10 +377,13 @@ CONTAINS
         !#      -E     (DBLE)   ENERGY                              [keV]                #
         !#      -Z     (INT)    ATOMIC NUMBER                       [-]                  #
         !#      -N     (INT)    LINE SELECTOR                       [-]                  #
-        !#THE LINE SELECTOR IS SET TO ZERO TU USE THE CROSS SECTION FOR THE              #
+        !#THE LINE SELECTOR IS SET TO ZERO TO USE THE CROSS SECTION FOR THE              #
         !#CONTINUUM.                                                                     #
         !#################################################################################
         IMPLICIT NONE
+        !f2py INTEGER, PARAMETER ::  QP = selected_real_kind(8)
+        !f2py INTEGER, PARAMETER ::  DP = selected_real_kind(8)
+        !f2py INTEGER, PARAMETER ::  WP = selected_real_kind(8)
         INTEGER, INTENT(IN) :: Z
         REAL(DP), INTENT(IN) :: E
         INTEGER, INTENT(IN) :: N
@@ -355,10 +417,12 @@ CONTAINS
         !#INPUTS:                                                                        #
         !#      -N     (INT)    LINE SELECTOR                       [-]                  #
         !#      -Z     (INT)    ATOMIC NUMBER                       [-]                  #
-        !#THE LINE SELECTOR IS SET TO ZERO TU USE THE CROSS SECTION FOR THE              #
-        !#CONTINUUM.                                                                     #
+        !#THE LINE SELECTOR IS SET TO ZERO TO CALCULATE THE CONSTANT FOR THE CONTINUUM	 #
         !#################################################################################
         IMPLICIT NONE
+        !f2py INTEGER, PARAMETER ::  QP = selected_real_kind(8)
+        !f2py INTEGER, PARAMETER ::  DP = selected_real_kind(8)
+        !f2py INTEGER, PARAMETER ::  WP = selected_real_kind(8)
         REAL(QP)    :: EBEL_CONST
         INTEGER, INTENT(IN) :: N
         INTEGER, INTENT(IN) :: Z
@@ -396,7 +460,7 @@ CONTAINS
         DATA FCON/0.4814, 0.03781, 2.413E-4/
 
         E_TUBE = DBLE(VTUBE)
-        E_EDGE = EdgeEnergy(Z, SHELL(N))
+        E_EDGE = EDGE_ENERGY(Z, N)
         UZ = E_TUBE/E_EDGE
 
         IF (N.EQ.0) THEN
@@ -460,6 +524,9 @@ CONTAINS
         !#      -UZ     (DBLE)      OVERVOLTAGE RATIO               [-]                  #
         !#################################################################################
         IMPLICIT NONE
+        !f2py INTEGER, PARAMETER ::  QP = selected_real_kind(8)
+        !f2py INTEGER, PARAMETER ::  DP = selected_real_kind(8)
+        !f2py INTEGER, PARAMETER ::  WP = selected_real_kind(8)
         REAL(DP), INTENT(IN) :: UZ
         REAL(WP) :: I
 
@@ -489,6 +556,9 @@ CONTAINS
         !#      -UZ     (DBLE)      OVERVOLTAGE RATIO               [-]                  #
         !#################################################################################
         IMPLICIT NONE
+        !f2py INTEGER, PARAMETER ::  QP = selected_real_kind(8)
+        !f2py INTEGER, PARAMETER ::  DP = selected_real_kind(8)
+        !f2py INTEGER, PARAMETER ::  WP = selected_real_kind(8)
         REAL(DP), INTENT(IN) ::UZ
         REAL(WP) :: G
 
@@ -519,6 +589,9 @@ CONTAINS
         !#      -Z      (INT)       ATOMIC NUMBER OF WINDOW         [-]                  #
         !#################################################################################
         IMPLICIT NONE
+        !f2py INTEGER, PARAMETER ::  QP = selected_real_kind(8)
+        !f2py INTEGER, PARAMETER ::  DP = selected_real_kind(8)
+        !f2py INTEGER, PARAMETER ::  WP = selected_real_kind(8)
         REAL(DP), INTENT(IN) :: E
         INTEGER, INTENT(IN) :: Z
         REAL(WP) :: R
@@ -550,6 +623,9 @@ CONTAINS
         !#      -N      (INT)       SHELL SELECTOR                  [-]                  #
         !#################################################################################
         IMPLICIT NONE
+        !f2py INTEGER, PARAMETER ::  QP = selected_real_kind(8)
+        !f2py INTEGER, PARAMETER ::  DP = selected_real_kind(8)
+        !f2py INTEGER, PARAMETER ::  WP = selected_real_kind(8)
         REAL(DP), INTENT(IN) :: E
         INTEGER, INTENT(IN) :: Z
         INTEGER, INTENT(IN) :: N
@@ -589,25 +665,28 @@ CONTAINS
         !#      -Z      (INT)       ATOMIC NUMBER OF WINDOW         [-]                  #
         !#################################################################################
         IMPLICIT NONE
+        !f2py INTEGER, PARAMETER ::  QP = selected_real_kind(8)
+        !f2py INTEGER, PARAMETER ::  DP = selected_real_kind(8)
+        !f2py INTEGER, PARAMETER ::  WP = selected_real_kind(8)
         REAL(DP), INTENT(IN) :: E
         INTEGER, INTENT(IN) :: Z
         REAL(WP) :: F
 
         REAL(WP), DIMENSION(2) :: CON
         REAL(WP) :: IONPOT
-        REAL(WP) :: ZA_RATIO
+        REAL(WP) :: ZA
         REAL(WP) :: V
         REAL(WP) :: F_V
 
         DATA CON/1.18E-5, 1.47E-6/
-        ZA_RATIO = NIST_ZA_RATIO(Z)
-        IONPOT = NIST_ION_POT(Z)
+        ZA = ZA_RATIO(Z)
+        IONPOT = ION_POT(Z)
         V = E/IONPOT
 
         F_V = CON(1)*SQRT(V)+CON(2)*V
 
-        F = -(1/IONPOT)*ZA_RATIO*(1/F_V)
-        !F = -78500*(ZA_RATIO/E)*LOG((1.166*E)/IONPOT)
+        F = -(1/IONPOT)*ZA*(1/F_V)
+        !F = -78500*(ZA/E)*LOG((1.166*E)/IONPOT)
         RETURN
     END FUNCTION STOPPING_FACTOR
 
@@ -625,6 +704,9 @@ CONTAINS
         !#      -N      (INT)       LINE SELECTOR                   [-]                  #
         !#################################################################################
         IMPLICIT NONE
+        !f2py INTEGER, PARAMETER ::  QP = selected_real_kind(8)
+        !f2py INTEGER, PARAMETER ::  DP = selected_real_kind(8)
+        !f2py INTEGER, PARAMETER ::  WP = selected_real_kind(8)
         REAL(DP), INTENT(IN) :: E
         INTEGER, INTENT(IN) :: Z
         INTEGER, INTENT(IN) :: N
@@ -653,6 +735,9 @@ CONTAINS
         !#      -N      (INT)       LINE SELECTOR                   [-]                  #
         !#################################################################################
         IMPLICIT NONE
+        !f2py INTEGER, PARAMETER ::  QP = selected_real_kind(8)
+        !f2py INTEGER, PARAMETER ::  DP = selected_real_kind(8)
+        !f2py INTEGER, PARAMETER ::  WP = selected_real_kind(8)
         REAL(DP), INTENT(IN) :: E
         INTEGER, INTENT(IN) :: Z
         INTEGER, INTENT(IN) :: N
@@ -679,12 +764,15 @@ CONTAINS
         !#      -D      (WP)        THICKNESS OF WINDOW             [um]                 #
         !#################################################################################
         IMPLICIT NONE
+        !f2py INTEGER, PARAMETER ::  QP = selected_real_kind(8)
+        !f2py INTEGER, PARAMETER ::  DP = selected_real_kind(8)
+        !f2py INTEGER, PARAMETER ::  WP = selected_real_kind(8)
         REAL(DP), INTENT(IN)    :: E
         INTEGER, INTENT(IN)     :: Z
         REAL(WP), INTENT(IN)    :: D
         REAL(WP)    :: W
 
-        W = EXP(-MAC(Z, E)*D*NIST_DENSITY(Z)*1E-4)
+        W = EXP(-MAC(Z, E)*D*DENSITY(Z)*1E-4)
         RETURN
     END FUNCTION TUBE_ATTEN
 
@@ -699,13 +787,16 @@ CONTAINS
         !#      -D      (WP)        THICKNESS OF FILTER             [um]                 #
         !#################################################################################
         IMPLICIT NONE
+        !f2py INTEGER, PARAMETER ::  QP = selected_real_kind(8)
+        !f2py INTEGER, PARAMETER ::  DP = selected_real_kind(8)
+        !f2py INTEGER, PARAMETER ::  WP = selected_real_kind(8)
         REAL(DP), INTENT(IN)    :: E
         INTEGER, INTENT(IN)     :: Z
         REAL(WP), INTENT(IN)    :: D
         REAL(WP)    :: W
 
         IF (D.GT. 0) THEN
-            W = EXP(-MAC(Z, E)*D*NIST_DENSITY(Z)*1E-4)
+            W = EXP(-MAC(Z, E)*D*DENSITY(Z)*1E-4)
             RETURN
         ELSE
             W = 1_QP
@@ -713,4 +804,29 @@ CONTAINS
         ENDIF
         RETURN
     END FUNCTION FILTER_ATTEN
+
+    FUNCTION PYDATA(E, I, D) RESULT(X)
+        IMPLICIT NONE
+        !f2py INTEGER, PARAMETER ::  QP = selected_real_kind(8)
+        !f2py INTEGER, PARAMETER ::  DP = selected_real_kind(8)
+        !f2py INTEGER, PARAMETER ::  WP = selected_real_kind(8)
+        REAL(DP), INTENT(IN) :: E
+        REAL(WP), INTENT(IN) :: I
+        REAL(DP), INTENT(IN) :: D
+        INTEGER :: X
+
+        VTUBE = E
+        ITUBE = I
+        Z_ANODE = 64
+        A_TAKE_OFF = 26
+        A_TAKE_OFF = DEG2RAD(A_TAKE_OFF)
+        SA_ANODE_OUT = 1
+        Z_WINDOW = 4
+        D_WINDOW = 300
+        ESTEP = D
+        EMIN = 0.0001
+        X = 1
+        write (6,*) vtube, itube, estep
+        RETURN
+    END FUNCTION PYDATA
 END MODULE ANODE

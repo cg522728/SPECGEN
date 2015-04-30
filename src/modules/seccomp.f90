@@ -6,8 +6,8 @@ MODULE SECCOMP
     USE :: ANODE
     USE :: MATHCHG
     implicit none
-    PRIVATE
-    PUBLIC ST_CHAR , ST_SCAT_R, ST_SCAT_C, ST_SCAT_CONT
+    !PRIVATE
+    !PUBLIC ST_CHAR , ST_SCAT_R, ST_SCAT_C, ST_SCAT_CONT, DERIV_ST_SCAT
 CONTAINS
     FUNCTION ST_CHAR(Z_ST, N) RESULT(N_CHAR)
         !#################################################################################
@@ -22,6 +22,9 @@ CONTAINS
         !#      -N      (INT)       LINE SELECTOR                   [-]                  #
         !#################################################################################
         IMPLICIT NONE
+        !f2py INTEGER, PARAMETER ::  QP = selected_real_kind(8)
+        !f2py INTEGER, PARAMETER ::  DP = selected_real_kind(8)
+        !f2py INTEGER, PARAMETER ::  WP = selected_real_kind(8)
         INTEGER, INTENT(IN) :: Z_ST
         INTEGER, INTENT(IN) :: N
         REAL(WP) :: N_CHAR
@@ -45,7 +48,7 @@ CONTAINS
         I_X_AN_CHAR = CHAR_X_AN_CHAR(Z_ST, N)
         I_X_AN_CONT = CHAR_X_AN_CONT(Z_ST, N)
         CONST = SA_ST_IN/(4*PI*SIN(A_ST_INCID))
-        N_CHAR = CONST*(I_X_AN_CHAR + I_X_AN_CONT)
+        N_CHAR = CONST*(I_X_AN_CHAR + I_X_AN_CONT)*(ATOMICWEIGHT(Z_ST)/ST_MASS)
         RETURN
     END FUNCTION ST_CHAR
 
@@ -63,6 +66,9 @@ CONTAINS
         !#      -N      (INT)       LINE SELECTOR                   [-]                  #
         !#################################################################################
         IMPLICIT NONE
+        !f2py INTEGER, PARAMETER ::  QP = selected_real_kind(8)
+        !f2py INTEGER, PARAMETER ::  DP = selected_real_kind(8)
+        !f2py INTEGER, PARAMETER ::  WP = selected_real_kind(8)
         INTEGER, INTENT(IN) :: Z_ST
         INTEGER, INTENT(IN) :: N
         REAL(WP) :: I
@@ -93,7 +99,7 @@ CONTAINS
             IF (E_AN_LINE.LT.E_ST_EDGE) CYCLE
             IF (E_AN_LINE.LT.EMIN) CYCLE
             I_TMP = ANODE_CHAR(Z_AN, CNT)
-            CS = CS_FLUOR_CP_CHG( CP_ST, N, E_AN_LINE)
+            CS = CS_FLUOR_CP_CHG(CP_ST, N, E_AN_LINE)
             CHI = CALC_CHI(E_AN_LINE, A_ST_INCID, E_ST_LINE, A_ST_TAKE_OFF)
             TMP = (I_TMP*CS)/CHI
             I_SUM = I_SUM + TMP
@@ -117,6 +123,9 @@ CONTAINS
         !#      -N      (INT)       LINE SELECTOR                   [-]                  #
         !#################################################################################
         IMPLICIT NONE
+        !f2py INTEGER, PARAMETER ::  QP = selected_real_kind(8)
+        !f2py INTEGER, PARAMETER ::  DP = selected_real_kind(8)
+        !f2py INTEGER, PARAMETER ::  WP = selected_real_kind(8)
         INTEGER, INTENT(IN) :: Z_ST
         INTEGER, INTENT(IN) :: N
         REAL(WP) :: I
@@ -148,6 +157,9 @@ CONTAINS
         !#      -N      (INT)       LINE SELECTOR                   [-]                  #
         !#################################################################################
         IMPLICIT NONE
+        !f2py INTEGER, PARAMETER ::  QP = selected_real_kind(8)
+        !f2py INTEGER, PARAMETER ::  DP = selected_real_kind(8)
+        !f2py INTEGER, PARAMETER ::  WP = selected_real_kind(8)
         REAL(DP), INTENT(IN) :: E
         INTEGER, INTENT(IN) :: Z_ST
         INTEGER, INTENT(IN) :: N
@@ -169,7 +181,7 @@ CONTAINS
         ENDIF
         TMP = ANODE_CONT(Z_AN, E)&
             *CS_FLUOR_CP_CHG(CP_ST , N, E)
-        CHI = CALC_CHI(E, A_ST_INCID, E_ST_LINE, A_ST_TAKE_OFF)
+        CHI = CALC_CHI(E, A_ST_INCID, E_ST_EDGE, A_ST_TAKE_OFF)
         I = (TMP/CHI)
         RETURN
     END FUNCTION DERIV_CHAR_X_AN_CONT
@@ -189,6 +201,9 @@ CONTAINS
         !#      -A2     (WP)        TAKE OFF ANGLE                  [rad]                #
         !#################################################################################
         IMPLICIT NONE
+        !f2py INTEGER, PARAMETER ::  QP = selected_real_kind(8)
+        !f2py INTEGER, PARAMETER ::  DP = selected_real_kind(8)
+        !f2py INTEGER, PARAMETER ::  WP = selected_real_kind(8)
         REAL(DP), INTENT(IN) :: E1
         REAL(WP), INTENT(IN) :: A1
         REAL(DP), INTENT(IN) :: E2
@@ -216,6 +231,10 @@ CONTAINS
         !#INPUTS:                                                                        #
         !#      -N      (INT)       LINE SELECTOR                   [-]                  #
         !#################################################################################
+        IMPLICIT NONE
+        !f2py INTEGER, PARAMETER ::  QP = selected_real_kind(8)
+        !f2py INTEGER, PARAMETER ::  DP = selected_real_kind(8)
+        !f2py INTEGER, PARAMETER ::  WP = selected_real_kind(8)
         INTEGER, INTENT(IN) :: N
         REAL(WP) :: N_RAYL
 
@@ -250,6 +269,10 @@ CONTAINS
         !#INPUTS:                                                                        #
         !#      -N      (INT)       LINE SELECTOR                   [-]                  #
         !#################################################################################
+        IMPLICIT NONE
+        !f2py INTEGER, PARAMETER ::  QP = selected_real_kind(8)
+        !f2py INTEGER, PARAMETER ::  DP = selected_real_kind(8)
+        !f2py INTEGER, PARAMETER ::  WP = selected_real_kind(8)
         INTEGER, INTENT(IN) :: N
         REAL(WP) :: N_RAYL
 
@@ -284,6 +307,10 @@ CONTAINS
         !#INPUTS:                                                                        #
         !#      -E      (DBLE)      ENERGY                          [keV]                #
         !#################################################################################
+        IMPLICIT NONE
+        !f2py INTEGER, PARAMETER ::  QP = selected_real_kind(8)
+        !f2py INTEGER, PARAMETER ::  DP = selected_real_kind(8)
+        !f2py INTEGER, PARAMETER ::  WP = selected_real_kind(8)
         REAL(DP), INTENT(IN) :: E
         REAL(WP) :: N_SCAT
 
@@ -304,7 +331,6 @@ CONTAINS
             RETURN
         ENDIF
         N_SCAT = CONST*INTEGRATE(DERIV_ST_SCAT, E1, E2, INT(25))
-        IF (ISNAN(N_SCAT)) WRITE (6,*) E1, E2
         RETURN
     END FUNCTION ST_SCAT_CONT
 
@@ -319,6 +345,10 @@ CONTAINS
         !#INPUTS:                                                                        #
         !#      -E      (DBLE)      ENERGY                          [keV]                #
         !#################################################################################
+        IMPLICIT NONE
+        !f2py INTEGER, PARAMETER ::  QP = selected_real_kind(8)
+        !f2py INTEGER, PARAMETER ::  DP = selected_real_kind(8)
+        !f2py INTEGER, PARAMETER ::  WP = selected_real_kind(8)
         REAL(DP), INTENT(IN) :: E
         REAL(WP) :: DN_SCAT
 
@@ -332,14 +362,14 @@ CONTAINS
         REAL(WP) :: DCS
         REAL(DP) :: EI
 
-        I_R = ANODE_CONT(Z_ANODE, E)*DCS_R(E, A_ST_POL)
+        I_R = DERIV_CONT(E, Z_ANODE)*DCS_R(E, A_ST_POL)
         C_R = CALC_CHI(E, A_ST_INCID, E, A_ST_TAKE_OFF)
 
         N_SR = I_R/C_R
 
         EI = COMPTON_ENERGY(E, A_ST_POL)
 
-        I_C = ANODE_CONT(Z_ANODE, EI)*DCS_C(EI, A_ST_POL)
+        I_C = DERIV_CONT(EI, Z_ANODE)*DCS_C(EI, A_ST_POL)
         C_C = CALC_CHI(EI, A_ST_INCID, E, A_ST_TAKE_OFF)
 
         N_SC = I_C/C_C

@@ -5,7 +5,6 @@ PROGRAM MMSENS
     USE     :: XRLDATA
     USE     :: CFGDATA
     USE     :: ANODE
-    USE     :: CONSTANTS
     USE     :: SECCOMP
     USE     :: MICROMATTER
 

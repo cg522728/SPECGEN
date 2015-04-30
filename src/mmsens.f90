@@ -53,29 +53,18 @@ PROGRAM MMSENS
             ENDIF
         END DO
     END DO
-    DO CNT2 = 1, 92!CP_SAM%NELEMENTS
+    DO CNT2 = 10, 92!CP_SAM%NELEMENTS
         NELEMENT = CNT2!CP_SAM%ELEMENTS(CNT2)
         DO CNT = 3, 3!1, SIZE(LINE)
-            EI = LineEnergy(NELEMENT, LINE(CNT))
+            EI = LINE_ENERGY(NELEMENT, CNT)
             IF (EI.EQ.0) CYCLE
             IF (EI.LT.EMIN) CYCLE
-            WRITE (6,'(I3,1H/,I3,A1,$)',ADVANCE='NO') CNT, SIZE(LINE), CHAR(13)
-            ISAM1 = MM1(CNT, NELEMENT, I_CHAR)
-            ISAM2 = MM2(CNT, NELEMENT)
-            ISAM3 = MM3(CNT, NELEMENT)
-            ISAM = (ISAM1+ISAM2+ISAM3)*(DETEFF(EI)/(ITUBE*CONC))
-            !WRITE (121,202) NELEMENT, CNT, EI, CONC, ISAM1
-            !WRITE (121,201) NELEMENT, ISAM1/CONC
-            WRITE (121,201) NELEMENT, ISAM1, ISAM2, ISAM3
-            write (6,'(1H[,A16,2H](,A3,1H), I32, 2ES32.20E3)') 'MAIN','OUT', CNT2, LINE_ENERGY(NELEMENT, CNT), isam1
-            ISAM1 = 0_QP
-            ISAM2 = 0_QP
-            ISAM3 = 0_QP
-            ISAM = 0_QP
+            ISAM = MM_SENS(NELEMENT, CNT, I_CHAR)
+            WRITE (6,'(I3,1H/,I3,A1,$)',ADVANCE='NO') CNT2, 92, CHAR(13)
         END DO
+        WRITE (121,201) NELEMENT, ISAM
+        ISAM = 0_WP
     END DO
-    CALL EXECUTE_COMMAND_LINE('./out.p')
-
 201 FORMAT(I4, 2X, 3ES32.20E4)
 202 FORMAT(I3, I3, ES32.20E3, 2X, 2ES32.20E4)
     CLOSE(121)
