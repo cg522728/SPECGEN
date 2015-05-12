@@ -1,0 +1,18 @@
+!    -*- f90 -*-
+! Note: the context of this file is case sensitive.
+
+python module tube_atten ! in 
+    interface  ! in :tube_atten
+        module anode ! in :tube_atten:../src/modules/anode.f90
+            function tube_atten(e,z,d) result (w) ! in :tube_atten:../src/modules/anode.f90:anode
+                real(kind=8) intent(in) :: e
+                integer intent(in) :: z
+                real(kind=8) intent(in) :: d
+                real(kind=8) :: w
+            end function tube_atten
+        end module anode
+    end interface 
+end python module tube_atten
+
+! This file was auto-generated with f2py (version:2).
+! See http://cens.ioc.ee/projects/f2py2e/

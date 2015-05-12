@@ -29,7 +29,6 @@ CONTAINS
         Z_PRESENT = PRESENT(Z)
         XSTEP = (XMAX-XMIN)*(DBLE(NSTEP)**(-1))
         FUNCVAL = 0_QP
-        TMP = 0_QP
         IF (Z_PRESENT .AND. N_PRESENT) THEN
             FI = FUNC(XMIN, Z, N)/2
             FF = FUNC(XMAX, Z, N)/2

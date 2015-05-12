@@ -111,22 +111,23 @@ PROGRAM STSPEC
         WRITE (6,'(I10,1H/,I10,A1,$)',ADVANCE='NO'), CNT, NSTEP, CHAR(13)
     END DO
     REWIND(100)
-    DO CNT= 1, SIZE(LINE)
-        DO CNT2 = 1, CP_ST%NELEMENTS
-            I_ST_CHAR(CNT, CNT2) = ST_CHAR(CP_ST%ELEMENTS(CNT2), CNT)
+
+!    DO CNT= 1, SIZE(LINE)
+!        DO CNT2 = 1, CP_ST%NELEMENTS
+!            I_ST_CHAR(CNT, CNT2) = ST_CHAR(CP_ST%ELEMENTS(CNT2), CNT)
 !            IF (ISNAN(I_ST_CHAR(CNT, CNT2))) THEN
 !                WRITE (6,*) 'ERROR:', EI, I_ST_CHAR(CNT, CNT2)
 !            ENDIF
-        END DO
-        WRITE (6,'(I10,1H/,I10,A1,$)',ADVANCE='NO'), CNT, SIZE(LINE), CHAR(13)
-    END DO
-
+!        END DO
+!        WRITE (6,'(I10,1H/,I10,A1,$)',ADVANCE='NO'), CNT, SIZE(LINE), CHAR(13)
+!    END DO
     DO CNT = 1, NSTEP
         READ (100,200) EI
         TMP = 0_QP
         I_CHAR = 0_QP
         ITMP = I_ST_CONT(CNT)
         LABEL = ''
+        !$OMP PARALLEL DO PRIVATE(TMP, I_CHAR) REDUCTION(+:ITMP)
         DO N = 1, SIZE(LINE)
             WRITE (6,'(I10,1H/,I10,3H-->,I3,1H/,I3,A1,$)',ADVANCE='NO'), CNT, NSTEP, N, SIZE(LINE), CHAR(13)
             EA = LineEnergy(Z_ANODE, LINE(N))
@@ -136,29 +137,25 @@ PROGRAM STSPEC
                 TMP = ST_SCAT_R(N)
                 ITMP = ITMP + TMP
                 TMP = 0_QP
-                LABEL = TRIM(LABEL)//'1'
             ENDIF
             EC = ComptonEnergy(DBLE(EA), DBLE((PI/2)-A_ST_TAKE_OFF))
             IF (EC.GE.EI .AND. EC.LT.(EI+ESTEP)) THEN
                 TMP = ST_SCAT_C(N)
                 ITMP = ITMP + TMP
                 TMP = 0_QP
-                LABEL = TRIM(LABEL)//'C'
             ENDIF
             DO CNT2 = 1, CP_ST%NELEMENTS
                 EC = LineEnergy(CP_ST%ELEMENTS(CNT2), LINE(N))
                 IF (EC.EQ.0) CYCLE
                 IF (EC.LT.EI) CYCLE
                 IF (EC.GE.EI .AND. EC.LT.(EI+ESTEP)) THEN
-                    I_CHAR = I_ST_CHAR(N, CNT2)
+                    I_CHAR = ST_CHAR(CP_ST%ELEMENTS(CNT2), N)!I_ST_CHAR(N, CNT2)
                     ITMP = ITMP + I_CHAR
-                    WRITE (NLABEL,'(I3)') N
-                    NLABEL = TRIM(NLABEL)
-                    !LABEL = TRIM(LABEL)//TRIM(NLABEL)
                 ENDIF
             END DO
         END DO
-        WRITE (104,201) EI, ITMP, LABEL
+        !$OMP END PARALLEL DO
+        WRITE (104,201) EI, ITMP
         IF (ISNAN(ITMP)) THEN
             WRITE (6,*) 'ERROR:', EI, ITMP
         ENDIF
@@ -166,13 +163,13 @@ PROGRAM STSPEC
     WRITE (6,*) 'WRITING OUTPUT TO FILE'
     REWIND(104)
     DO
-        READ (104,201,END=999) EI, I, LABEL
-        WRITE (121,201) EI, I, LABEL
+        READ (104,201,END=999) EI, I
+        WRITE (121,201) EI, I
     END DO
     REWIND(104)
 
 200 FORMAT(ES32.20E3)
-201 FORMAT(ES32.20E3, 2X, ES32.20E4, 2X, A16)
+201 FORMAT(ES32.20E3, 2X, ES32.20E4)
 999 CLOSE(100)
     CLOSE(104)
     CLOSE(111)

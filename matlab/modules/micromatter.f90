@@ -20,9 +20,9 @@ CONTAINS
         E_SAM_CHAR = LINE_ENERGY(Z, N)
 
         TMP = I_X_ST_CHAR(Z, N, I_ST_CHAR)&
-            +I_X_AN_SCAT_CHAR(Z, N)&
-            +I_X_AN_SCAT_CONT(Z ,N)
-        I  = TMP*DETEFF(E_SAM_CHAR)
+            +0&!I_X_AN_SCAT_CHAR(Z, N)&
+            +0!I_X_AN_SCAT_CONT(Z ,N)
+        I  = TMP!*DETEFF(E_SAM_CHAR)
         RETURN
     END FUNCTION MM_SENS
 
@@ -43,7 +43,7 @@ CONTAINS
             DO CNT = 1, SIZE(LINE)
                 E_ST_CHAR = LINE_ENERGY(CP_ST%ELEMENTS(CNT2), CNT)
                 IF (E_ST_CHAR.EQ.0) CYCLE
-                TMP = I_ST_CHAR(CNT2, CNT)&
+                TMP = 1&!I_ST_CHAR(CNT2, CNT)&
                         *CS_FLUOR_CHG(Z, N, E_ST_CHAR)
                 I_TMP = I_TMP + TMP
             END DO
@@ -127,7 +127,7 @@ CONTAINS
             +CS_PHOTO_CHG(Z_DET_DL, EI)*D_DET_DL*1E-4&
             +CS_PHOTO_CHG(Z_DET_GAP, EI)*D_DET_GAP*1E-4))
         K2 = 1-EXP(-MAC(Z_DET_BODY, EI)*(D_DET_BODY*1E-4))
-        DETEFF = ETA*K1*K2
+        DETEFF = CON1*ETA*K1*K2
         RETURN
     END FUNCTION
 END MODULE
