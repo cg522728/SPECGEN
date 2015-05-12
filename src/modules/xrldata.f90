@@ -7,12 +7,14 @@ MODULE XRLDATA
         !f2py INTEGER, PARAMETER ::  DP = selected_real_kind(8)
         !f2py INTEGER, PARAMETER ::  WP = selected_real_kind(8)
     INTEGER, DIMENSION(383)   :: SHELL
+    INTEGER, DIMENSION(383)   :: SHELLIN
     INTEGER, DIMENSION(383)   :: LINE
     REAL(QP), DIMENSION(92)   :: NIST_ZA_RATIO
     REAL(WP), DIMENSION(92)   :: NIST_ION_POT
     REAL(QP), DIMENSION(92)   :: NIST_DENSITY
     INCLUDE 'shell.f90'
     INCLUDE 'line.f90'
+    INCLUDE 'shellin.f90'
 CONTAINS
     FUNCTION CS_FLUOR_CHG(Z, N, E) RESULT(CS)
         !#################################################################################
@@ -145,14 +147,15 @@ CONTAINS
         REAL(QP)    :: TRANSPROB
         INTEGER, INTENT(IN)     :: N
         INTEGER, INTENT(IN)     :: Z
+
         REAL(WP) :: LW
 
-        IF (SHELL(N).LE.N5_SHELL) THEN
-            LW = AtomicLevelWidth(Z, SHELL(N))*1E3
-        ELSE
-            LW = 0
-        ENDIF
-        TRANSPROB = RadRate(Z, LINE(N))*LW
+        INTEGER :: CNT
+
+        CALL SetErrorMessages(0)
+        LW = AtomicLevelWidth(Z, SHELL(N))!+AtomicLevelWidth(Z, SHELLIN(N)))
+        TRANSPROB = LW*1E3*RadRate(Z, LINE(N))
+        CALL SetErrorMessages(1)
         RETURN
     END FUNCTION TRANSPROB
 
@@ -219,7 +222,7 @@ CONTAINS
         REAL(WP) :: X
         IF (NIST_DENSITY(Z).EQ.0) CALL LOAD_NIST()
         X = NIST_DENSITY(Z)
-        !f2py X = AtomicDensity(Z)
+        !X = ElementDensity(Z)
         RETURN
     END FUNCTION DENSITY
 

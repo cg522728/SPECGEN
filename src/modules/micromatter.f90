@@ -20,9 +20,9 @@ CONTAINS
         E_SAM_CHAR = LINE_ENERGY(Z, N)
 
         TMP = I_X_ST_CHAR(Z, N, I_ST_CHAR)&
-            +0&!I_X_AN_SCAT_CHAR(Z, N)&
-            +0!I_X_AN_SCAT_CONT(Z ,N)
-        I  = TMP!*DETEFF(E_SAM_CHAR)
+            +I_X_AN_SCAT_CHAR(Z, N)&
+            +I_X_AN_SCAT_CONT(Z ,N)
+        I  = TMP*DETEFF(E_SAM_CHAR)
         RETURN
     END FUNCTION MM_SENS
 

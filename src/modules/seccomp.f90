@@ -74,14 +74,14 @@ CONTAINS
         REAL(WP) :: I
 
         INTEGER :: Z_AN
-        REAL(DP) :: E_ST_EDGE = 0_DP
-        REAL(DP) :: E_ST_LINE = 0_DP
-        REAL(DP) :: E_AN_LINE = 0_DP
-        REAL(WP) :: TMP = 0_WP
-        REAL(WP) :: CHI = 0_WP
+        REAL(DP) :: E_ST_EDGE
+        REAL(DP) :: E_ST_LINE
+        REAL(DP) :: E_AN_LINE
+        REAL(WP) :: TMP
+        REAL(WP) :: CHI
         REAL(WP) :: CS
-        REAL(WP) :: I_TMP = 0_WP
-        REAL(WP) :: I_SUM = 0_WP
+        REAL(WP) :: I_TMP
+        REAL(WP) :: I_SUM
 
         INTEGER :: CNT
 
@@ -91,10 +91,6 @@ CONTAINS
 
         DO CNT = 1, SIZE(LINE)
             E_AN_LINE = LINE_ENERGY(Z_AN, CNT)
-            I_TMP = 0_WP
-            CHI = 0_WP
-            TMP = 0_WP
-            CS = 0_WP
             IF (E_AN_LINE.EQ.0) CYCLE
             IF (E_AN_LINE.LT.E_ST_EDGE) CYCLE
             IF (E_AN_LINE.LT.EMIN) CYCLE
@@ -105,7 +101,6 @@ CONTAINS
             I_SUM = I_SUM + TMP
         END DO
         I = I_SUM
-        I_SUM = 0_WP !MEMORY LEAK
         RETURN
     END FUNCTION CHAR_X_AN_CHAR
 
@@ -175,18 +170,18 @@ CONTAINS
         E_ST_EDGE = EDGE_ENERGY(Z_ST, N)
         E_ST_LINE = LINE_ENERGY(Z_ST, N)
 
-        IF (E.LT.E_ST_EDGE .OR. E.GE.VTUBE) THEN
+        IF (E.LT.E_ST_EDGE .OR. E.GT.VTUBE) THEN
             I = 0_QP
             RETURN
         ENDIF
         TMP = ANODE_CONT(Z_AN, E)&
-            *CS_FLUOR_CP_CHG(CP_ST , N, E)
-        CHI = CALC_CHI(E, A_ST_INCID, E_ST_EDGE, A_ST_TAKE_OFF)
+            *CS_FLUOR_CP_CHG( CP_ST, N, E)
+        CHI = CALC_CHI( E, A_ST_INCID, E_ST_EDGE, A_ST_TAKE_OFF)
         I = (TMP/CHI)
         RETURN
     END FUNCTION DERIV_CHAR_X_AN_CONT
 
-    FUNCTION CALC_CHI(E1, A1, E2, A2) RESULT(CHI)
+    FUNCTION CALC_CHI(E1, A1, E2, A2, Z_ST) RESULT(CHI)
         !#################################################################################
         !#THIS FUNCTION CALCULATES A FACTOR CHI USED IN OTHER FUNCTIONS                  #
         !#AS DECRIBED IN :                                                               #
@@ -208,13 +203,22 @@ CONTAINS
         REAL(WP), INTENT(IN) :: A1
         REAL(DP), INTENT(IN) :: E2
         REAL(WP), INTENT(IN) :: A2
+        INTEGER, INTENT(IN), OPTIONAL :: Z_ST
         REAL(WP) :: CHI
 
-        REAL(WP) :: MAC1 = 0_WP
-        REAL(WP) :: MAC2 = 0_WP
+        LOGICAL :: Z_PRESENT
+        REAL(WP) :: MAC1
+        REAL(WP) :: MAC2
 
-        MAC1 = MAC_COMP(CP_ST, E1)
-        MAC2 = MAC_COMP(CP_ST, E2)
+        Z_PRESENT = PRESENT(Z_ST)
+        IF (Z_PRESENT) THEN
+            MAC1 = MAC(Z_ST, E1)
+            MAC2 = MAC(Z_ST, E2)
+        ELSEIF (.NOT.Z_PRESENT) THEN
+            MAC1 = MAC_COMP(CP_ST, E1)
+            MAC2 = MAC_COMP(CP_ST, E2)
+        ENDIF
+
         CHI = (MAC1/SIN(A1))&
             +(MAC2/SIN(A2))
         RETURN
@@ -239,12 +243,13 @@ CONTAINS
         REAL(WP) :: N_RAYL
 
         INTEGER :: Z_AN
-        REAL(WP) :: CHI = 0_WP
-        REAL(DP) :: E_AN_CHAR = 0_DP
+        REAL(WP) :: CHI
+        REAL(DP) :: E_AN_CHAR
         REAL(DP) :: E_AN_SCAT
         REAL(WP) :: I_CHAR
         REAL(WP) :: CONST
         REAL(WP) :: DCS
+        REAL(WP) :: TMP
 
         Z_AN = Z_ANODE
         E_AN_CHAR = LINE_ENERGY(Z_AN, N)
@@ -277,8 +282,8 @@ CONTAINS
         REAL(WP) :: N_RAYL
 
         INTEGER :: Z_AN
-        REAL(WP) :: CHI = 0_WP
-        REAL(DP) :: E_AN_CHAR = 0_DP
+        REAL(WP) :: CHI
+        REAL(DP) :: E_AN_CHAR
         REAL(DP) :: E_AN_SCAT
         REAL(WP) :: I_CHAR
         REAL(WP) :: CONST

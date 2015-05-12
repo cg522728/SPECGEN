@@ -8,25 +8,18 @@ MODULE ANODE
     !PRIVATE
     !PUBLIC ANODE_CONT, ANODE_CHAR, TUBE_ATTEN, FILTER_ATTEN, DERIV_CONT
 CONTAINS
-    FUNCTION ANODE_INT(Z, E, V, I, A_TO) RESULT(ITMP)
+    FUNCTION ANODE_INT(Z, E) RESULT(ITMP)
         IMPLICIT NONE
         !f2py INTEGER, PARAMETER ::  QP = selected_real_kind(8)
         !f2py INTEGER, PARAMETER ::  DP = selected_real_kind(8)
         !f2py INTEGER, PARAMETER ::  WP = selected_real_kind(8)
         INTEGER, INTENT(IN) :: Z
         REAL(DP), INTENT(IN) :: E
-        REAL(DP), INTENT(IN) :: V
-        REAL(WP), INTENT(IN) :: I
-        REAL(WP), INTENT(IN) :: A_TO
         REAL(WP) :: ITMP
 
         REAL(DP) :: EA
 
         INTEGER :: N
-
-        VTUBE = V
-        ITUBE = I
-        A_TAKE_OFF = DEG2RAD(A_TO)
 
         ITMP = ANODE_CONT(Z_ANODE, E)
         DO N = 1, SIZE(LINE)
@@ -804,29 +797,4 @@ CONTAINS
         ENDIF
         RETURN
     END FUNCTION FILTER_ATTEN
-
-    FUNCTION PYDATA(E, I, D) RESULT(X)
-        IMPLICIT NONE
-        !f2py INTEGER, PARAMETER ::  QP = selected_real_kind(8)
-        !f2py INTEGER, PARAMETER ::  DP = selected_real_kind(8)
-        !f2py INTEGER, PARAMETER ::  WP = selected_real_kind(8)
-        REAL(DP), INTENT(IN) :: E
-        REAL(WP), INTENT(IN) :: I
-        REAL(DP), INTENT(IN) :: D
-        INTEGER :: X
-
-        VTUBE = E
-        ITUBE = I
-        Z_ANODE = 64
-        A_TAKE_OFF = 26
-        A_TAKE_OFF = DEG2RAD(A_TAKE_OFF)
-        SA_ANODE_OUT = 1
-        Z_WINDOW = 4
-        D_WINDOW = 300
-        ESTEP = D
-        EMIN = 0.0001
-        X = 1
-        write (6,*) vtube, itube, estep
-        RETURN
-    END FUNCTION PYDATA
 END MODULE ANODE
