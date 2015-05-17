@@ -30,15 +30,18 @@ CONTAINS
         XSTEP = (XMAX-XMIN)*(DBLE(NSTEP)**(-1))
         FUNCVAL = 0_QP
         TMP = 0_QP
+        call OMP_SET_NUM_THREADS(16)
         IF (Z_PRESENT .AND. N_PRESENT) THEN
             FI = FUNC(XMIN, Z, N)/2
             FF = FUNC(XMAX, Z, N)/2
+            !$OMP PARALLEL DO PRIVATE(XVAL, TMP) SHARED(XSTEP, XMIN) REDUCTION(+:FUNCVAL)
             DO CNT = 1, (NSTEP-1)
-                !WRITE (6,'(1H[, A16, 2H]*,I4,1H/,I4,A1,$)',ADVANCE='NO') 'INTEGRATE', CNT, NSTEP-1, CHAR(13)
+                TMP = 0_QP
                 XVAL = XMIN + CNT*XSTEP
                 TMP = FUNC(XVAL, Z, N)
                 FUNCVAL = FUNCVAL + TMP
             END DO
+            !$OMP END PARALLEL DO
             INTEGRATE = XSTEP*(FI + FUNCVAL + FF)
             FUNCVAL = 0_QP
             RETURN
@@ -46,12 +49,14 @@ CONTAINS
         IF (Z_PRESENT .AND. .NOT.N_PRESENT) THEN
             FI = FUNC(XMIN, Z)/2
             FF = FUNC(XMAX, Z)/2
+            !$OMP PARALLEL DO PRIVATE(XVAL, TMP) SHARED(XSTEP, XMIN) REDUCTION(+:FUNCVAL)
             DO CNT = 1, (NSTEP-1)
-                !WRITE (6,'(1H[, A16, 2H]*,I4,1H/,I4,A1,$)',ADVANCE='NO') 'INTEGRATE', CNT, NSTEP-1, CHAR(13)
+                TMP = 0_QP
                 XVAL = XMIN + CNT*XSTEP
                 TMP = FUNC(XVAL, Z)
                 FUNCVAL = FUNCVAL + TMP
             END DO
+            !$OMP END PARALLEL DO
             INTEGRATE = XSTEP*(FI + FUNCVAL + FF)
             FUNCVAL = 0_QP
             RETURN
@@ -59,12 +64,14 @@ CONTAINS
         IF (.NOT.Z_PRESENT .AND. .NOT.N_PRESENT) THEN
             FI = FUNC(XMIN)/2
             FF = FUNC(XMAX)/2
+            !$OMP PARALLEL DO PRIVATE(XVAL, TMP) SHARED(XSTEP, XMIN) REDUCTION(+:FUNCVAL)
             DO CNT = 1, (NSTEP-1)
-                !WRITE (6,'(1H[, A16, 2H]*,I4,1H/,I4,A1,$)',ADVANCE='NO') 'INTEGRATE', CNT, NSTEP-1, CHAR(13)
+                TMP = 0_QP
                 XVAL = XMIN + CNT*XSTEP
                 TMP = FUNC(XVAL)
                 FUNCVAL = FUNCVAL + TMP
             END DO
+            !$OMP END PARALLEL DO
             INTEGRATE = XSTEP*(FI + FUNCVAL + FF)
             FUNCVAL = 0_QP
             RETURN

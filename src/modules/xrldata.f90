@@ -287,9 +287,12 @@ CONTAINS
         INTEGER, INTENT(IN) :: N
         REAL(DP) :: E
 
-        !CALL SetErrorMessages(0)
+
+        !$OMP CRITICAL
+        CALL SetErrorMessages(0)
         E = EdgeEnergy(Z, SHELL(N))
-        !CALL SetErrorMessages(1)
+        CALL SetErrorMessages(1)
+        !$OMP END CRITICAL
         RETURN
     END FUNCTION EDGE_ENERGY
 
