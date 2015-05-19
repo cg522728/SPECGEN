@@ -1,5 +1,7 @@
 CC = gfortran
-CFLAGS = -funderscoring -O0 -g3 -pg -p -Wall -fopenmp -fmessage-length=0 -cpp
+CDFLAGS = -funderscoring -O0 -g3 -pg -p -Wall -fopenmp -fmessage-length=0 -cpp
+COFLAGS = -funderscoring -O3 -Wall -fopenmp -fmessage-length=0 -cpp
+CFLAGS = $(COFLAGS)
 LIBS = -lxrlf03 -lxrl -lgomp
 _SOURCES =\
 	types\

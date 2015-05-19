@@ -1,14 +1,15 @@
 PROGRAM STSPEC
     USE     :: ISO_FORTRAN_ENV
+	USE :: omp_lib
     USE     :: xraylib
     USE     :: TYPES
     USE     :: XRLDATA
     USE     :: CFGDATA
     USE     :: ANODE
     USE     :: SECCOMP
-
     IMPLICIT NONE
     INTEGER :: CNT, CNT2, N
+	INTEGER :: Z_TEST, NTEST
     CHARACTER(LEN=16)   :: ARG0
     CHARACTER(LEN=16)    :: LABEL
     CHARACTER(LEN=3)    :: NLABEL
@@ -17,8 +18,8 @@ PROGRAM STSPEC
     REAL(QP)    :: PI
     REAL(QP)    :: TMP, I_CHAR
     REAL(QP)    :: TIMEIN, TIMEOUT, TIMEDIFF
-    REAL(QP), DIMENSION(:,:), ALLOCATABLE   :: I_ST_CHAR
-    REAL(QP), DIMENSION(:), ALLOCATABLE   :: I_ST_CONT
+    REAL(DP), DIMENSION(:), ALLOCATABLE :: E_STOR
+    REAL(QP), DIMENSION(:), ALLOCATABLE :: I_STOR
 
     PI = 2.D0*DASIN(1.D0)
 
@@ -33,7 +34,6 @@ PROGRAM STSPEC
     OPEN(UNIT=122,FILE='CHAR_ST.DAT', ACCESS='APPEND', STATUS='REPLACE')
 
     !SET UP CONFIG-FILES
-    CALL CPU_TIME(TIMEIN)
     CALL INITCFG()
     !READ SELECTOR FROM COMMAND LINE
     !   = 0 THEN LOAD CONFIG FROM FILES AND DISPLAY MENU
@@ -49,13 +49,15 @@ PROGRAM STSPEC
 
     !CALL DISPCFG()
     CALL LOAD_NIST()
-
-    WRITE (6,*) 'INITIALIZING ENERGY VALUES'
-    DO CNT = 1, NSTEP
-        WRITE (6,'(I4,1H/,I4,A1,$)',ADVANCE='NO') CNT, NSTEP, CHAR(13)
-        WRITE (100,200) (EMIN + ESTEP*DBLE(CNT))
-    END DO
-    REWIND(100)
+	ALLOCATE(I_STOR(NSTEP))
+    ALLOCATE(E_STOR(NSTEP))
+!    WRITE (6,*) 'INITIALIZING ENERGY VALUES'
+!    DO CNT = 1, NSTEP
+!        !WRITE (6,'(I10,1H/,I10,A1,$)',ADVANCE='NO') CNT, NSTEP, CHAR(13)
+!        !WRITE (100,200) (EMIN + ESTEP*DBLE(CNT))
+!	    E_STOR(CNT) = (EMIN + ESTEP*DBLE(CNT))
+!    END DO
+!    REWIND(100)
 
 !    !CALCULATING INTENSITY OF SCATTERED CONTINUUM OF X-RAY TUBE
 !    WRITE (6,*) 'CALCULATING INTENSITY OF SCATTERED CONTINUUM OF X-RAY TUBE'
@@ -102,71 +104,52 @@ PROGRAM STSPEC
 !    WRITE (6,*) 'CALCULATING SECONDARY TARGET SPECTRUM'
 !    REWIND(100)
 !
-!    ALLOCATE(I_ST_CHAR(SIZE(LINE),CP_ST%NELEMENTS))
-!    ALLOCATE(I_ST_CONT(NSTEP))
-!
-!    DO CNT = 1, NSTEP
-!        EI = 0_DP
-!        READ (100,200) EI
-!        I_ST_CONT(CNT) = ST_SCAT_CONT(EI)
-!!        IF (ISNAN(I_ST_CONT(CNT))) THEN
-!!            WRITE (6,*) 'ERROR:', EI, I_ST_CONT(CNT)
-!!        ENDIF
-!        WRITE (6,'(I10,1H/,I10,A1,$)',ADVANCE='NO'), CNT, NSTEP, CHAR(13)
-!    END DO
-    REWIND(100)
-
-!    DO CNT= 1, SIZE(LINE)
-!        DO CNT2 = 1, CP_ST%NELEMENTS
-!            I_ST_CHAR(CNT, CNT2) = ST_CHAR(CP_ST%ELEMENTS(CNT2), CNT)
-!            IF (ISNAN(I_ST_CHAR(CNT, CNT2))) THEN
-!                WRITE (6,*) 'ERROR:', EI, I_ST_CHAR(CNT, CNT2)
-!            ENDIF
-!        END DO
-!        WRITE (6,'(I10,1H/,I10,A1,$)',ADVANCE='NO'), CNT, SIZE(LINE), CHAR(13)
-!    END DO
+	CALL CPU_TIME(TIMEIN)
+	!CALL omp_set_num_threads(4)
+	!$OMP PARALLEL DO ORDERED
+	!$OMP& PRIVATE(EI, TMP, ITMP, I_CHAR, N, CNT2, Z_TEST)
     DO CNT = 1, NSTEP
-        READ (100,200) EI
+	!$OMP ORDERED
+	EI = EMIN + ESTEP*DBLE(CNT)
         TMP = 0_QP
+	ITMP = ST_SCAT_CONT(EI)
         I_CHAR = 0_QP
-        ITMP = ST_SCAT_CONT(EI)
-        LABEL = ''
         DO N = 1, SIZE(LINE)
-            WRITE (6,'(I10,1H/,I10,3H-->,I3,1H/,I3,A1,$)',ADVANCE='NO'), CNT, NSTEP, N, SIZE(LINE), CHAR(13)
+            !WRITE (6,'(I10,1H/,I10,3H-->,I3,1H/,I3,A1,$)',ADVANCE='NO'), CNT, NSTEP, N, SIZE(LINE), CHAR(13)
+            IF (LineEnergy(Z_ANODE, LINE(N)).LE.0) CYCLE
             EA = LineEnergy(Z_ANODE, LINE(N))
-            IF (EA.EQ.0) CYCLE
-            IF (ISNAN(EA)) CYCLE
             IF (EA.GE.EI .AND. EA.LT.(EI+ESTEP)) THEN
                 TMP = ST_SCAT_R(N)
                 ITMP = ITMP + TMP
-                TMP = 0_QP
             ENDIF
-            EC = ComptonEnergy(DBLE(EA), DBLE((PI/2)-A_ST_TAKE_OFF))
+            EC = ComptonEnergy(EA, DBLE(A_ST_POL))
             IF (EC.GE.EI .AND. EC.LT.(EI+ESTEP)) THEN
                 TMP = ST_SCAT_C(N)
                 ITMP = ITMP + TMP
-                TMP = 0_QP
             ENDIF
             DO CNT2 = 1, CP_ST%NELEMENTS
-                EC = LineEnergy(CP_ST%ELEMENTS(CNT2), LINE(N))
+		Z_TEST = CP_ST%ELEMENTS(CNT2)
+                EC = LineEnergy(Z_TEST, LINE(N))
                 IF (EC.EQ.0) CYCLE
-                IF (EC.LT.EI) CYCLE
+                IF (EC.LT.EMIN) CYCLE
                 IF (EC.GE.EI .AND. EC.LT.(EI+ESTEP)) THEN
-                    I_CHAR = ST_CHAR(CP_ST%ELEMENTS(CNT2), N)
+			I_CHAR = ST_CHAR(Z_TEST, N)
                     ITMP = ITMP + I_CHAR
                 ENDIF
             END DO
         END DO
         WRITE (104,201) EI, ITMP
-        IF (ISNAN(ITMP)) THEN
-            WRITE (6,*) 'ERROR:', EI, ITMP
-        ENDIF
+	E_STOR(CNT) = EI
+	I_STOR(CNT) = ITMP
+	!$OMP END ORDERED
     END DO
+	!$OMP END PARALLEL DO
     WRITE (6,*) 'WRITING OUTPUT TO FILE'
     REWIND(104)
-    DO
-        READ (104,201,END=999) EI, I
-        WRITE (121,201) EI, I
+    DO CNT= 1,NSTEP
+        !READ (104,201,END=999) EI, I
+	!EI = EMIN + ESTEP*DBLE(CNT)
+        WRITE (121,201) E_STOR(CNT), ABS(I_STOR(CNT))
     END DO
     REWIND(104)
 
